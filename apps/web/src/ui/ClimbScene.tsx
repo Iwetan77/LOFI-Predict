@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useGame } from "../store";
+import { PixiClimb } from "../game/PixiClimb";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 /**
  * CLIMB: the live price drives LOFI up/down. The CASH OUT button shows the
@@ -23,7 +25,6 @@ export function ClimbScene() {
   const losing = prog < -0.15;
   const tension = remFrac < 0.25; // final seconds
 
-  const climbPct = Math.min(100, (liveFloors / risk.floorsPerWin) * 100);
   const cashOutGlow = winning ? Math.min(1, 0.3 + prog) : 0.15;
 
   return (
@@ -59,34 +60,14 @@ export function ClimbScene() {
         </div>
       </div>
 
-      {/* the tower + LOFI */}
+      {/* the tower + LOFI — rendered on the PixiJS canvas */}
       <div className="z-10 relative flex-1 overflow-hidden border-2 border-white/15 bg-black/30">
-        <div className="absolute inset-x-0 top-1 text-center text-[9px] text-white/40">FLOOR {floor + liveFloors}</div>
-        {/* climb fill */}
-        <div
-          className={`absolute bottom-0 w-full transition-all duration-200 ${winning ? "bg-warm/25" : "bg-danger/20"}`}
-          style={{ height: `${climbPct}%` }}
-        />
-        {/* LOFI marker */}
-        <div
-          className="absolute left-1/2 h-12 w-12 -translate-x-1/2 border-4 transition-all duration-200"
-          style={{
-            bottom: `calc(${climbPct}% )`,
-            borderColor: winning ? "#39ff8b" : "#ff4d4d",
-            background: winning ? "rgba(57,255,139,0.4)" : "rgba(255,77,77,0.4)",
-            imageRendering: "pixelated",
-          }}
-          aria-label="lofi"
-        />
-        {/* falling stones when losing */}
-        {losing &&
-          [0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="absolute h-3 w-3 bg-danger"
-              style={{ left: `${20 + i * 28}%`, animation: `fall ${0.7 + i * 0.2}s linear infinite` }}
-            />
-          ))}
+        <ErrorBoundary>
+          <PixiClimb />
+        </ErrorBoundary>
+        <div className="pointer-events-none absolute inset-x-0 top-1 z-10 text-center text-[9px] text-white/50">
+          FLOOR {floor + liveFloors}
+        </div>
       </div>
 
       <div className="z-10 mt-1 text-center text-[9px] text-white/50">
