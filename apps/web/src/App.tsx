@@ -1,7 +1,7 @@
 import { useGame } from "./store";
 import { useEngine } from "./game/useEngine";
 import { Hud } from "./ui/Hud";
-import { BootScreen } from "./ui/BootScreen";
+import { ArcadeLanding } from "./ui/ArcadeLanding";
 import { PickScene } from "./ui/PickScene";
 import { ClimbScene } from "./ui/ClimbScene";
 import {
@@ -20,7 +20,7 @@ export default function App() {
   return (
     <div className="crt mx-auto flex h-full max-w-md flex-col">
       <Hud />
-      {phase === "BOOT" && <BootScreen />}
+      {phase === "BOOT" && <ArcadeLanding />}
       {phase === "TUTORIAL" && <TutorialScene />}
       {phase === "PICK" && <PickScene liveSpot={liveSpot} onGo={startRound} />}
       {(phase === "CLIMB" || phase === "ARMING" || phase === "REDEEM") && <ClimbScene />}
