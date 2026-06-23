@@ -1,24 +1,34 @@
 import { useGame } from "./store";
+import { useEngine } from "./game/useEngine";
 import { Hud } from "./ui/Hud";
 import { BootScreen } from "./ui/BootScreen";
+import { PickScene } from "./ui/PickScene";
+import { ClimbScene } from "./ui/ClimbScene";
+import {
+  TutorialScene,
+  SummaryScene,
+  BuildingSwapScene,
+  GameOverScene,
+  ConnectScene,
+} from "./ui/Scenes";
 
 export default function App() {
   const phase = useGame((s) => s.phase);
+  const nextRound = useGame((s) => s.nextRound);
+  const { liveSpot, startRound } = useEngine();
 
   return (
     <div className="crt mx-auto flex h-full max-w-md flex-col">
       <Hud />
-      {phase === "BOOT" ? (
-        <BootScreen />
-      ) : (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-          <p className="text-neon text-glow text-sm">{phase}</p>
-          <p className="text-[10px] text-white/60">scene coming next…</p>
-          <button className="arcade-btn text-xs" onClick={() => useGame.getState().setPhase("BOOT")}>
-            ◀ BACK
-          </button>
-        </div>
-      )}
+      {phase === "BOOT" && <BootScreen />}
+      {phase === "TUTORIAL" && <TutorialScene />}
+      {phase === "PICK" && <PickScene liveSpot={liveSpot} onGo={startRound} />}
+      {(phase === "CLIMB" || phase === "ARMING" || phase === "REDEEM") && <ClimbScene />}
+      {(phase === "SETTLE" || phase === "SETTLE_SUMMARY") && <SummaryScene onNext={nextRound} />}
+      {phase === "BUILDING_SWAP" && <BuildingSwapScene onNext={() => useGame.getState().setPhase("PICK")} />}
+      {phase === "CONNECT" && <ConnectScene />}
+      {phase === "FUND" && <ConnectScene />}
+      {phase === "GAME_OVER" && <GameOverScene />}
     </div>
   );
 }

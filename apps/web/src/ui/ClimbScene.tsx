@@ -1,0 +1,110 @@
+import { useEffect, useState } from "react";
+import { useGame } from "../store";
+
+/**
+ * CLIMB: the live price drives LOFI up/down. The CASH OUT button shows the
+ * bankable amount and reacts to how the round is going (calm → glow → frantic).
+ * Falling-stone tension is conveyed with red flicker + shake when losing.
+ * (PixiJS canvas replaces these placeholders in the climb-engine step.)
+ */
+export function ClimbScene() {
+  const { direction, risk, prog, liveFloors, liveCashOut, spot, entrySpot, roundEndsAt, floor, cashOut } = useGame();
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 100);
+    return () => clearInterval(id);
+  }, []);
+
+  const totalMs = 14_000;
+  const remaining = Math.max(0, roundEndsAt - now);
+  const remFrac = Math.min(1, remaining / totalMs);
+  const winning = prog >= 0;
+  const losing = prog < -0.15;
+  const tension = remFrac < 0.25; // final seconds
+
+  const climbPct = Math.min(100, (liveFloors / risk.floorsPerWin) * 100);
+  const cashOutGlow = winning ? Math.min(1, 0.3 + prog) : 0.15;
+
+  return (
+    <div
+      className="relative flex flex-1 flex-col px-4 py-3"
+      style={{ animation: losing ? "shake 0.18s linear infinite" : undefined }}
+    >
+      {/* danger wash when losing / tension vignette in final seconds */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 transition-opacity"
+        style={{
+          background: losing
+            ? "radial-gradient(circle at center, transparent 40%, rgba(255,40,40,0.35))"
+            : "transparent",
+          opacity: losing ? 0.6 + 0.4 * Math.abs(prog) : 0,
+        }}
+      />
+      {tension && (
+        <div
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{ boxShadow: "inset 0 0 120px 40px rgba(0,0,0,0.7)" }}
+        />
+      )}
+
+      {/* countdown */}
+      <div className="z-10 mb-2">
+        <div className="flex justify-between text-[10px]">
+          <span className="text-white/70">{direction === "UP" ? "▲ UP" : "▼ DOWN"} · {risk.label}</span>
+          <span className={tension ? "text-danger animate-blink" : "text-neon"}>{(remaining / 1000).toFixed(1)}s</span>
+        </div>
+        <div className="mt-1 h-2 w-full bg-white/10">
+          <div className={`h-full ${tension ? "bg-danger" : "bg-neon"}`} style={{ width: `${remFrac * 100}%` }} />
+        </div>
+      </div>
+
+      {/* the tower + LOFI */}
+      <div className="z-10 relative flex-1 overflow-hidden border-2 border-white/15 bg-black/30">
+        <div className="absolute inset-x-0 top-1 text-center text-[9px] text-white/40">FLOOR {floor + liveFloors}</div>
+        {/* climb fill */}
+        <div
+          className={`absolute bottom-0 w-full transition-all duration-200 ${winning ? "bg-warm/25" : "bg-danger/20"}`}
+          style={{ height: `${climbPct}%` }}
+        />
+        {/* LOFI marker */}
+        <div
+          className="absolute left-1/2 h-12 w-12 -translate-x-1/2 border-4 transition-all duration-200"
+          style={{
+            bottom: `calc(${climbPct}% )`,
+            borderColor: winning ? "#39ff8b" : "#ff4d4d",
+            background: winning ? "rgba(57,255,139,0.4)" : "rgba(255,77,77,0.4)",
+            imageRendering: "pixelated",
+          }}
+          aria-label="lofi"
+        />
+        {/* falling stones when losing */}
+        {losing &&
+          [0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="absolute h-3 w-3 bg-danger"
+              style={{ left: `${20 + i * 28}%`, animation: `fall ${0.7 + i * 0.2}s linear infinite` }}
+            />
+          ))}
+      </div>
+
+      <div className="z-10 mt-1 text-center text-[9px] text-white/50">
+        ${spot.toFixed(0)} {spot >= entrySpot ? "▲" : "▼"} from ${entrySpot.toFixed(0)}
+      </div>
+
+      {/* CASH OUT — alive, reacts to PnL */}
+      <button
+        onClick={cashOut}
+        className="z-10 mt-2 w-full border-b-4 border-black/40 py-4 text-sm uppercase tracking-wider text-ink transition-all active:translate-y-0.5"
+        style={{
+          background: winning ? "#ffd23f" : "#8a8597",
+          boxShadow: `0 0 ${10 + cashOutGlow * 30}px rgba(255,210,63,${cashOutGlow})`,
+          transform: winning && prog > 0.5 ? "scale(1.03)" : "scale(1)",
+        }}
+      >
+        GRAB THE LEDGE · {liveCashOut}
+      </button>
+    </div>
+  );
+}
