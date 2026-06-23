@@ -1,0 +1,16 @@
+{
+  "name": "lofi-predict",
+  "private": true,
+  "version": "0.1.0",
+  "description": "An arcade climber where your crypto calls power LOFI the yeti.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  },
+  "packageManager": "pnpm@10.6.5"
+}

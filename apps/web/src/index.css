@@ -1,0 +1,66 @@
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: #0b0420;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: "Press Start 2P", ui-monospace, monospace;
+  color: #e8e6ff;
+}
+
+@layer components {
+  /* CRT scanline + vignette overlay sits above everything, ignores pointer. */
+  .crt::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 50;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0) 0px,
+        rgba(0, 0, 0, 0) 2px,
+        rgba(0, 0, 0, 0.18) 3px,
+        rgba(0, 0, 0, 0.18) 4px
+      );
+    mix-blend-mode: multiply;
+  }
+  .crt::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 49;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+  }
+
+  .arcade-btn {
+    @apply font-pixel uppercase tracking-wider text-ink bg-neon px-5 py-3 rounded-none
+           border-b-4 border-r-4 border-black/40 active:translate-y-0.5 active:border-b-2
+           transition-transform select-none;
+    box-shadow: 0 0 18px rgba(61, 245, 255, 0.55);
+  }
+  .pixel-panel {
+    @apply border-4 border-neon/70 bg-ink/80 p-4;
+    box-shadow: 0 0 0 4px #0b0420, 0 0 24px rgba(61, 245, 255, 0.25);
+  }
+}
+
+.text-glow {
+  text-shadow: 0 0 8px currentColor, 0 0 18px currentColor;
+}
