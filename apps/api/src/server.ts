@@ -6,11 +6,13 @@
 
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import cookie from "@fastify/cookie";
 import websocket from "@fastify/websocket";
 import { fetchOracles, type RawOracle } from "@lofi/sui";
 import { Tape } from "./tape.js";
 import { toBuildings } from "./buildings.js";
 import { Leaderboard } from "./leaderboard.js";
+import { zkLoginRoutes } from "./zklogin/routes.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const HOST = process.env.HOST ?? "0.0.0.0";
@@ -29,8 +31,10 @@ async function getOracles(): Promise<RawOracle[]> {
 
 async function main() {
   const app = Fastify({ logger: true });
-  await app.register(cors, { origin: true });
+  await app.register(cors, { origin: true, credentials: true });
+  await app.register(cookie);
   await app.register(websocket);
+  await app.register(zkLoginRoutes, { prefix: "/api/zklogin" });
 
   app.get("/health", async () => ({ ok: true, ts: Date.now() }));
 

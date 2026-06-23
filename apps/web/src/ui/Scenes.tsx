@@ -1,5 +1,6 @@
 import { useGame } from "../store";
 import { Confetti } from "./Confetti";
+import { useZkLogin } from "../auth/useZkLogin";
 
 /** Brief play-money intro before the first practice climbs. */
 export function TutorialScene() {
@@ -79,20 +80,49 @@ export function GameOverScene() {
   );
 }
 
-/** Placeholder for the zkLogin / load-credits step (wired in the next stage). */
+/** zkLogin sign-in gate. Google sign-in (no wallet install), then keep climbing. */
 export function ConnectScene() {
   const setPhase = useGame((s) => s.setPhase);
+  const { user, loading, signIn, signOut } = useZkLogin();
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-8 text-center">
       <h2 className="text-neon text-glow text-lg">INSERT COIN</h2>
-      <p className="text-[10px] leading-relaxed text-white/75">
-        nice climbing! real climbs sign in with google
-        <br />
-        and load credits — coming in the next build.
-      </p>
-      <button className="arcade-btn text-xs" onClick={() => setPhase("PICK")}>
-        ▶ KEEP PRACTICING
-      </button>
+      {loading ? (
+        <p className="text-[10px] text-white/60 animate-blink">…</p>
+      ) : user ? (
+        <>
+          <p className="text-[10px] leading-relaxed text-white/75">
+            signed in as
+            <br />
+            <span className="text-gold">{user.name ?? user.email ?? "player"}</span>
+            <br />
+            <span className="text-[8px] text-white/40">
+              {user.address.slice(0, 6)}…{user.address.slice(-4)}
+            </span>
+          </p>
+          <button className="arcade-btn text-sm" onClick={() => setPhase("PICK")}>
+            ▶ START CLIMBING
+          </button>
+          <button className="text-[8px] text-white/40 underline" onClick={signOut}>
+            sign out
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="text-[10px] leading-relaxed text-white/75">
+            nice climbing! real climbs sign in
+            <br />
+            with google — no wallet to install.
+          </p>
+          <button className="arcade-btn text-xs" onClick={signIn}>
+            ▶ SIGN IN WITH GOOGLE
+          </button>
+          <button className="text-[8px] text-white/40 underline" onClick={() => setPhase("PICK")}>
+            keep practicing instead
+          </button>
+        </>
+      )}
     </div>
   );
 }
