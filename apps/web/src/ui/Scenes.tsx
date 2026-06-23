@@ -1,4 +1,5 @@
 import { useGame } from "../store";
+import { Confetti } from "./Confetti";
 
 /** Brief play-money intro before the first practice climbs. */
 export function TutorialScene() {
@@ -28,7 +29,8 @@ export function SummaryScene({ onNext }: { onNext: () => void }) {
   const net = credited - staked;
   const win = outcome !== "LOSS";
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-5 px-8 text-center">
+    <div className="relative flex flex-1 flex-col items-center justify-center gap-5 px-8 text-center">
+      {win && <Confetti />}
       <h2 className={`text-glow text-xl ${win ? "text-warm" : "text-danger"}`}>
         {outcome === "WIN" ? "FLOOR REACHED!" : outcome === "CASHOUT" ? "LEDGE GRABBED!" : "LOFI FELL!"}
       </h2>

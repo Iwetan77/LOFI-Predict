@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useGame } from "../store";
 import { PixiClimb } from "../game/PixiClimb";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { sfx } from "../game/audio";
 
 /**
  * CLIMB: the live price drives LOFI up/down. The CASH OUT button shows the
@@ -23,7 +24,14 @@ export function ClimbScene() {
   const remFrac = Math.min(1, remaining / totalMs);
   const winning = prog >= 0;
   const losing = prog < -0.15;
-  const tension = remFrac < 0.25; // final seconds
+  const tension = remaining > 0 && remFrac < 0.25; // final seconds
+
+  // heartbeat thud while the clock runs down
+  useEffect(() => {
+    if (!tension) return;
+    const id = setInterval(() => sfx.heartbeat(), 600);
+    return () => clearInterval(id);
+  }, [tension]);
 
   const cashOutGlow = winning ? Math.min(1, 0.3 + prog) : 0.15;
 

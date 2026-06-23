@@ -1,5 +1,6 @@
 import { useGame } from "./store";
 import { useEngine } from "./game/useEngine";
+import { useSound } from "./game/useSound";
 import { Hud } from "./ui/Hud";
 import { ArcadeLanding } from "./ui/ArcadeLanding";
 import { PickScene } from "./ui/PickScene";
@@ -16,6 +17,7 @@ export default function App() {
   const phase = useGame((s) => s.phase);
   const nextRound = useGame((s) => s.nextRound);
   const { liveSpot, startRound } = useEngine();
+  useSound();
 
   return (
     <div className="crt mx-auto flex h-full max-w-md flex-col">
