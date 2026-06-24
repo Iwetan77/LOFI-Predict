@@ -18,3 +18,5 @@ export type Phase =
 
 export const FLOORS_PER_BUILDING = 20;
 export const STARTING_LIVES = 3;
+/** A brief "get ready" beat at the start of each climb (LOFI stands idle). */
+export const READY_MS = 1100;

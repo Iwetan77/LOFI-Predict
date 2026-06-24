@@ -28,7 +28,16 @@ export function PickScene({ liveSpot, onGo }: { liveSpot: number; onGo: () => vo
   const up = change >= 0;
 
   return (
-    <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-3 py-3">
+    <div
+      className="flex flex-1 flex-col gap-3 overflow-y-auto px-3 py-3"
+      style={{
+        backgroundImage:
+          "linear-gradient(rgba(11,4,32,0.72),rgba(11,4,32,0.92)), url(/art/building_tier3.png), url(/art/sky.jpg)",
+        backgroundSize: "cover, 70% auto, cover",
+        backgroundPosition: "center, bottom center, center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
       {/* chart console */}
       <div className="border-2 border-neon/30 bg-black/50 p-3" style={{ boxShadow: "inset 0 0 18px rgba(61,245,255,0.08)" }}>
         <div className="mb-1 flex items-end justify-between">

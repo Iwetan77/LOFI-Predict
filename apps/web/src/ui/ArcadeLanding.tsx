@@ -23,7 +23,14 @@ export function ArcadeLanding() {
   );
 
   return (
-    <div className="relative flex flex-1 flex-col items-center overflow-hidden">
+    <div
+      className="relative flex flex-1 flex-col items-center overflow-hidden"
+      style={{
+        backgroundImage: "linear-gradient(rgba(11,4,32,0.55),rgba(11,4,32,0.9)), url(/art/sky.jpg)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
       {/* tower backdrop with lit windows */}
       <div className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute inset-x-10 bottom-0 top-16 bg-gradient-to-b from-[#160a33] to-[#0b0420] opacity-80" />

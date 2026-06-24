@@ -29,11 +29,9 @@ export function useSound() {
       if (losing && !wasLosing) sfx.slip();
       wasLosing = losing;
 
-      // music plays through active gameplay, silent on the menu / game over.
-      const inPlay = ["PICK", "ARMING", "CLIMB", "REDEEM", "SETTLE", "SETTLE_SUMMARY", "BUILDING_SWAP"].includes(
-        s.phase,
-      );
-      if (inPlay) sfx.startMusic();
+      // music kicks in only once a climb actually starts — not on menus/landing.
+      const climbing = s.phase === "ARMING" || s.phase === "CLIMB" || s.phase === "REDEEM";
+      if (climbing) sfx.startMusic();
       else sfx.stopMusic();
 
       // outcome transitions

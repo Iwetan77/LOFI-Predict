@@ -47,6 +47,7 @@ interface GameState {
   setPhase: (p: Phase) => void;
   pressStart: () => void;
   configure: (cfg: Partial<Pick<GameState, "token" | "direction" | "risk" | "stake">>) => void;
+  armRound: (entrySpot: number) => void;
   startRound: (entrySpot: number, durationMs: number) => void;
   onTick: (spot: number) => void;
   cashOut: () => void;
@@ -88,6 +89,10 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   configure: (cfg) => set(cfg),
+
+  // A brief "ready?" beat: LOFI stands on the ledge before the timer starts.
+  armRound: (entrySpot) =>
+    set({ phase: "ARMING", entrySpot, spot: entrySpot, prog: 0, liveFloors: 0, liveCashOut: get().stake }),
 
   startRound: (entrySpot, durationMs) =>
     set({

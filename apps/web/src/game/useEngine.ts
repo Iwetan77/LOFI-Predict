@@ -39,5 +39,15 @@ export function useEngine() {
     return () => clearInterval(id);
   }, []);
 
-  return { liveSpot, startRound: () => useGame.getState().startRound(srcRef.current!.current() ?? 62000, ROUND_MS) };
+  // Arm the round (a ~1.2s "ready?" beat with LOFI idle on the ledge), then
+  // start the live timer.
+  const beginRound = () => {
+    const spot = srcRef.current!.current() ?? 62000;
+    useGame.getState().armRound(spot);
+    setTimeout(() => {
+      if (useGame.getState().phase === "ARMING") useGame.getState().startRound(spot, ROUND_MS);
+    }, 1200);
+  };
+
+  return { liveSpot, startRound: beginRound };
 }
