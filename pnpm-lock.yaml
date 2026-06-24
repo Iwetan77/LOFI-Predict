@@ -8,18 +8,12 @@ importers:
 
   .:
     dependencies:
-      '@fastify/cookie':
-        specifier: ^11
-        version: 11.0.2
       '@lofi/sui':
         specifier: workspace:*
         version: link:packages/sui
       '@mysten/sui':
         specifier: ^1.30.0
         version: 1.45.2(typescript@5.9.3)
-      fastify:
-        specifier: ^5.0.0
-        version: 5.8.5
       jose:
         specifier: ^5
         version: 5.10.0

@@ -187,9 +187,10 @@ export function useEngine() {
       return;
     }
 
-    // Win (fly) / lose (fall): brief beat, then the in-game menu (or game over).
+    // One building = one bet. A FALL ends the run outright — you're only asked to
+    // continue after a clean win (topping the tower). Wins → in-game sky menu.
     window.setTimeout(() => {
-      if (lives <= 0) useGame.getState().setPhase("GAME_OVER");
+      if (reason === "FALL" || lives <= 0) useGame.getState().setPhase("GAME_OVER");
       else useGame.getState().nextRound();
     }, reason === "FALL" ? 1500 : 1400);
   };

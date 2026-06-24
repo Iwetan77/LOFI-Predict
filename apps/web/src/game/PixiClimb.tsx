@@ -80,7 +80,7 @@ export function PixiClimb() {
       a.stage.addChild(buildingLayer);
       let landmark: Sprite | null = null;
       let towerTopY = H() * 0.14;
-      let towerBaseY = H() * 0.86;
+      let towerBaseY = H() * 0.9; // foot of the tower (LOFI's feet rest here)
 
       const ensureBuilding = async (seed: number) => {
         if (seed === curSeed) return;
@@ -101,13 +101,13 @@ export function PixiClimb() {
           landmark.y = H();
           buildingLayer.addChild(landmark);
           towerTopY = H() - landmark.height * 0.9;
-          towerBaseY = H() * 0.86;
+          towerBaseY = H() * 0.9;
         }
       };
 
-      // ── yeti ──
+      // ── yeti ── (anchored at the feet so he stands on the tower, not mid-air)
       const yeti = new Sprite(poseIdle ?? Texture.WHITE);
-      yeti.anchor.set(0.5, 0.5);
+      yeti.anchor.set(0.5, 1);
       const yetiW = 60;
       const setPose = (tex: Texture | null | undefined) => {
         if (tex && yeti.texture !== tex) {
@@ -190,7 +190,6 @@ export function PixiClimb() {
         const armed = phase === "CLIMB";
         const arming = phase === "ARMING";
         const prog = st.prog;
-        const winning = prog >= 0;
         const losing = prog < -0.15;
         const t = performance.now();
 
@@ -276,7 +275,10 @@ export function PixiClimb() {
         }
 
         if (!leaping && !falling) {
-          const climbing = armed && winning && prog > 0.05;
+          // During CLIMB he is ALWAYS climbing (hand-over-hand) — the idle pose
+          // only shows during the brief ARMING beat, so it never lingers over the
+          // action once the round starts.
+          const climbing = armed;
 
           frameTimer -= ticker.deltaMS;
           if (frameTimer <= 0) {
@@ -284,8 +286,7 @@ export function PixiClimb() {
             frameTimer = FRAME_MS;
           }
           if (poseIdle) {
-            if (arming) setPose(poseIdle);
-            else if (climbing) setPose(frameToggle ? poseClimbA : poseClimbB);
+            if (climbing) setPose(frameToggle ? poseClimbA : poseClimbB);
             else setPose(poseIdle);
           } else {
             yeti.tint = losing ? 0xff4d4d : 0x39ff8b;
