@@ -5,6 +5,7 @@ import { Hud } from "./ui/Hud";
 import { ArcadeLanding } from "./ui/ArcadeLanding";
 import { PickScene } from "./ui/PickScene";
 import { ClimbScene } from "./ui/ClimbScene";
+import { FundScene } from "./ui/FundScene";
 import {
   TutorialScene,
   SummaryScene,
@@ -16,7 +17,7 @@ import {
 export default function App() {
   const phase = useGame((s) => s.phase);
   const nextRound = useGame((s) => s.nextRound);
-  const { liveSpot, startRound } = useEngine();
+  const { liveSpot, startRound, cashOut } = useEngine();
   useSound();
 
   return (
@@ -25,11 +26,13 @@ export default function App() {
       {phase === "BOOT" && <ArcadeLanding />}
       {phase === "TUTORIAL" && <TutorialScene />}
       {phase === "PICK" && <PickScene liveSpot={liveSpot} onGo={startRound} />}
-      {(phase === "CLIMB" || phase === "ARMING" || phase === "REDEEM") && <ClimbScene />}
+      {(phase === "CLIMB" || phase === "ARMING" || phase === "REDEEM" || phase === "RESOLVE") && (
+        <ClimbScene onCashOut={cashOut} />
+      )}
       {(phase === "SETTLE" || phase === "SETTLE_SUMMARY") && <SummaryScene onNext={nextRound} />}
       {phase === "BUILDING_SWAP" && <BuildingSwapScene onNext={() => useGame.getState().setPhase("PICK")} />}
       {phase === "CONNECT" && <ConnectScene />}
-      {phase === "FUND" && <ConnectScene />}
+      {phase === "FUND" && <FundScene />}
       {phase === "GAME_OVER" && <GameOverScene />}
     </div>
   );

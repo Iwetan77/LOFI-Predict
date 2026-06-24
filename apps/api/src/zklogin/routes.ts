@@ -13,10 +13,16 @@ import { fromBase64, toBase64 } from "@mysten/sui/utils";
 import {
   FULLNODE_URL,
   DUSDC_TYPE,
+  EVENT,
   buildCreateManager,
   buildDeposit,
+  buildWithdraw,
   buildMint,
   buildRedeem,
+  fetchOracles,
+  pickClimbOracle,
+  latestPrice,
+  readManagerBalance,
   type MarketRef,
 } from "@lofi/sui";
 import { googleAuthUrl, exchangeCodeForIdToken, verifyGoogleIdToken } from "./google.js";
@@ -31,6 +37,7 @@ const secure = process.env.NODE_ENV === "production";
 type PrepareBody =
   | { action: "createManager" }
   | { action: "deposit"; managerId: string; amount: string | number }
+  | { action: "withdraw"; managerId: string; amount: string | number }
   | { action: "mint" | "redeem"; managerId: string; market: MarketRef; quantity: string | number };
 
 export async function zkLoginRoutes(app: FastifyInstance) {
@@ -83,6 +90,51 @@ export async function zkLoginRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  // The market a real climb mints against right now: the soonest active BTC
+  // expiry with enough time left, plus the at-the-money strike and live spot.
+  // The strike/expiry are protocol details the player never sees — the client
+  // just needs them to mint and to subscribe the price tape to the right oracle.
+  app.get("/market", async (_req, reply) => {
+    const o = pickClimbOracle(await fetchOracles(), { asset: "BTC", minMsLeft: 120_000 });
+    if (!o) return reply.code(503).send({ error: "no active climb right now" });
+    const tick = await latestPrice(client, o.oracle_id);
+    if (!tick) return reply.code(503).send({ error: "no live price yet" });
+    const minStrike = BigInt(o.min_strike);
+    const ts = BigInt(o.tick_size);
+    const strike = minStrike + ((tick.spotRaw - minStrike + ts / 2n) / ts) * ts;
+    return {
+      oracleId: o.oracle_id,
+      expiry: o.expiry,
+      strike: strike.toString(),
+      spot: tick.spot,
+      spotRaw: tick.spotRaw.toString(),
+      msLeft: o.expiry - Date.now(),
+    };
+  });
+
+  // Signed-in player's on-chain state: gas (SUI), loadable credits (DUSDC in
+  // wallet), and their PredictManager if they've already created one. The client
+  // uses this to decide whether to show "create manager" / "load credits".
+  app.get("/wallet", async (req, reply) => {
+    const s = openSession(req.cookies[SESSION_COOKIE]);
+    if (!s) return reply.code(401).send({ error: "not signed in" });
+    const [sui, dusdc, evs] = await Promise.all([
+      client.getBalance({ owner: s.address }),
+      client.getBalance({ owner: s.address, coinType: DUSDC_TYPE }),
+      client.queryEvents({ query: { Sender: s.address }, order: "descending", limit: 50 }),
+    ]);
+    const created = evs.data.find((e) => e.type === EVENT.managerCreated);
+    const managerId = created ? (created.parsedJson as { manager_id: string }).manager_id : null;
+    const managerBalance = managerId ? (await readManagerBalance(client, managerId).catch(() => 0n)).toString() : "0";
+    return {
+      address: s.address,
+      sui: sui.totalBalance, // MIST (9-dec)
+      dusdc: dusdc.totalBalance, // DUSDC in wallet, raw (6-dec)
+      managerId,
+      managerBalance,
+    };
+  });
+
   // Build the requested game transaction from the signed-in address; return the
   // BCS bytes for the browser to sign with its ephemeral key.
   app.post<{ Body: PrepareBody }>("/prepare", async (req, reply) => {
@@ -101,6 +153,8 @@ export async function zkLoginRoutes(app: FastifyInstance) {
       if (coins.data.length > 1) tx.mergeCoins(tx.object(primary), coins.data.slice(1).map((c) => tx.object(c.coinObjectId)));
       const [credit] = tx.splitCoins(tx.object(primary), [tx.pure.u64(BigInt(body.amount))]);
       buildDeposit({ managerId: body.managerId, coin: credit, tx });
+    } else if (body.action === "withdraw") {
+      tx = buildWithdraw({ managerId: body.managerId, amount: BigInt(body.amount), recipient: s.address });
     } else if (body.action === "mint") {
       tx = buildMint({ managerId: body.managerId, market: body.market, quantity: BigInt(body.quantity) });
     } else if (body.action === "redeem") {
@@ -150,9 +204,17 @@ export async function zkLoginRoutes(app: FastifyInstance) {
       const res = await client.executeTransactionBlock({
         transactionBlock: fromBase64(txBytesB64),
         signature,
-        options: { showEffects: true, showObjectChanges: true },
+        options: { showEffects: true, showObjectChanges: true, showEvents: true },
       });
-      return { digest: res.digest, objectChanges: res.objectChanges ?? [] };
+      const status = res.effects?.status.status;
+      if (status !== "success") {
+        return reply.code(502).send({ error: "tx failed", detail: res.effects?.status.error ?? "unknown" });
+      }
+      return {
+        digest: res.digest,
+        objectChanges: res.objectChanges ?? [],
+        events: (res.events ?? []).map((e) => ({ type: e.type, parsedJson: e.parsedJson })),
+      };
     } catch (e) {
       app.log.error({ err: (e as Error).message }, "zklogin/execute");
       return reply.code(502).send({ error: "execute failed", detail: (e as Error).message });

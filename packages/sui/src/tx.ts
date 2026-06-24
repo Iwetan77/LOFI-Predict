@@ -128,6 +128,26 @@ export function buildRedeem(opts: {
   return tx;
 }
 
+/**
+ * Pull DUSDC back out of the manager to the player's wallet. `amount` is in
+ * 6-decimal units; pass the full manager balance to cash out everything.
+ */
+export function buildWithdraw(opts: {
+  managerId: string;
+  amount: bigint;
+  recipient: string;
+  tx?: Transaction;
+}): Transaction {
+  const tx = opts.tx ?? new Transaction();
+  const coin = tx.moveCall({
+    target: TARGET.managerWithdraw,
+    typeArguments: [DUSDC_TYPE],
+    arguments: [tx.object(opts.managerId), tx.pure.u64(opts.amount)],
+  });
+  tx.transferObjects([coin], tx.pure.address(opts.recipient));
+  return tx;
+}
+
 /** Settle a position after the round ended (oracle is Settled). */
 export function buildRedeemSettled(opts: {
   managerId: string;

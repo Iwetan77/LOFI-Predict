@@ -101,6 +101,12 @@ body {
 .marquee-track { animation: marquee 18s linear infinite; }
 .flicker { animation: flicker 4s linear infinite; }
 
+@keyframes coinShine {
+  0%, 100% { transform: translateX(-60%) rotate(0deg); opacity: 0; }
+  45%, 55% { opacity: 0.8; }
+  50% { transform: translateX(60%) rotate(0deg); }
+}
+
 @keyframes flyAround {
   0%   { left: 4%;  top: 68%; transform: rotate(-8deg) scaleX(1); }
   25%  { left: 58%; top: 14%; transform: rotate(8deg) scaleX(1); }

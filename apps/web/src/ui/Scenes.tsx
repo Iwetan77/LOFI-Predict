@@ -1,7 +1,8 @@
+import { ConnectModal } from "@mysten/dapp-kit";
 import { useGame } from "../store";
 import { Confetti } from "./Confetti";
 import { FlyingLofi } from "./FlyingLofi";
-import { useZkLogin } from "../auth/useZkLogin";
+import { useSigner } from "../auth/useSigner";
 
 /** Brief play-money intro before the first practice climbs. */
 export function TutorialScene() {
@@ -25,7 +26,7 @@ export function TutorialScene() {
 }
 
 export function SummaryScene({ onNext }: { onNext: () => void }) {
-  const { lastResult, floor, lives } = useGame();
+  const { lastResult, floor, lives, realMode, credits, lastDigest } = useGame();
   if (!lastResult) return null;
   const { outcome, floorsGained, credited, staked } = lastResult;
   const net = credited - staked;
@@ -47,10 +48,26 @@ export function SummaryScene({ onNext }: { onNext: () => void }) {
       ) : (
         <p className="text-sm text-white">lost a life · {"♥".repeat(lives)}</p>
       )}
-      <p className={`text-[10px] ${net >= 0 ? "text-warm" : "text-danger"}`}>
-        {net >= 0 ? "+" : ""}
-        {net} credits
-      </p>
+      {realMode ? (
+        <div className="flex flex-col items-center gap-1">
+          <p className="text-[10px] text-warm">{credits.toFixed(2)} credits</p>
+          {lastDigest && (
+            <a
+              href={`https://suiscan.xyz/testnet/tx/${lastDigest}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[8px] text-neon/70 underline"
+            >
+              on-chain ✓ {lastDigest.slice(0, 8)}…
+            </a>
+          )}
+        </div>
+      ) : (
+        <p className={`text-[10px] ${net >= 0 ? "text-warm" : "text-danger"}`}>
+          {net >= 0 ? "+" : ""}
+          {net} credits
+        </p>
+      )}
       <button className="arcade-btn text-sm" onClick={onNext}>
         ▶ ONE MORE
       </button>
@@ -88,42 +105,48 @@ export function GameOverScene() {
   );
 }
 
-/** zkLogin sign-in gate. Google sign-in (no wallet install), then keep climbing. */
+/**
+ * Sign-in gate for real climbs (both paths on testnet):
+ *  - Connect Wallet — lowest friction if you already hold testnet SUI/DUSDC.
+ *  - Google (zkLogin) — no wallet to install; funds a fresh address.
+ */
 export function ConnectScene() {
   const setPhase = useGame((s) => s.setPhase);
-  const { user, loading, signIn, signOut } = useZkLogin();
+  const { signedIn, address, name, mode, googleSignIn, signOut } = useSigner();
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-8 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-5 px-8 text-center">
       <h2 className="text-neon text-glow text-lg">INSERT COIN</h2>
-      {loading ? (
-        <p className="text-[10px] text-white/60 animate-blink">…</p>
-      ) : user ? (
+      {signedIn && address ? (
         <>
           <p className="text-[10px] leading-relaxed text-white/75">
-            signed in as
+            {mode === "wallet" ? "wallet connected" : "signed in"} as
             <br />
-            <span className="text-gold">{user.name ?? user.email ?? "player"}</span>
+            <span className="text-gold">{name ?? `${address.slice(0, 6)}…${address.slice(-4)}`}</span>
             <br />
             <span className="text-[8px] text-white/40">
-              {user.address.slice(0, 6)}…{user.address.slice(-4)}
+              {address.slice(0, 6)}…{address.slice(-4)}
             </span>
           </p>
-          <button className="arcade-btn text-sm" onClick={() => setPhase("PICK")}>
-            ▶ START CLIMBING
+          <button className="arcade-btn text-sm" onClick={() => setPhase("FUND")}>
+            ▶ FUEL UP &amp; PLAY FOR REAL
+          </button>
+          <button className="text-[8px] text-white/40 underline" onClick={() => setPhase("PICK")}>
+            keep practicing instead
           </button>
           <button className="text-[8px] text-white/40 underline" onClick={signOut}>
-            sign out
+            {mode === "wallet" ? "disconnect" : "sign out"}
           </button>
         </>
       ) : (
         <>
           <p className="text-[10px] leading-relaxed text-white/75">
-            nice climbing! real climbs sign in
+            nice climbing! to play for real,
             <br />
-            with google — no wallet to install.
+            connect a wallet or sign in.
           </p>
-          <button className="arcade-btn text-xs" onClick={signIn}>
+          <ConnectModal trigger={<button className="arcade-btn text-xs">▶ CONNECT WALLET</button>} />
+          <button className="arcade-btn text-xs" onClick={googleSignIn}>
             ▶ SIGN IN WITH GOOGLE
           </button>
           <button className="text-[8px] text-white/40 underline" onClick={() => setPhase("PICK")}>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useGame } from "../store";
+import { useSigner } from "../auth/useSigner";
 import { RISK_TIERS } from "../game/round";
 import { BtcChart } from "./BtcChart";
 
@@ -9,7 +10,27 @@ import { BtcChart } from "./BtcChart";
  * No finance words.
  */
 export function PickScene({ liveSpot, onGo }: { liveSpot: number; onGo: () => void }) {
-  const { direction, risk, stake, credits, configure } = useGame();
+  const { direction, risk, stake, credits, playMoney, realMode, managerId, setPhase } = useGame();
+  const configure = useGame((s) => s.configure);
+  const { send } = useSigner();
+  const [cashingOut, setCashingOut] = useState(false);
+
+  // Pull the whole on-chain balance back to the wallet, then head home.
+  const cashOutToWallet = async () => {
+    if (!managerId || credits <= 0) {
+      setPhase("BOOT");
+      return;
+    }
+    setCashingOut(true);
+    try {
+      await send({ action: "withdraw", managerId, amount: String(Math.floor(credits * 1e6)) });
+    } catch {
+      /* leave it in the manager — it carries over next time */
+    } finally {
+      setCashingOut(false);
+      setPhase("BOOT");
+    }
+  };
 
   // rolling price history for the chart
   const [hist, setHist] = useState<number[]>([]);
@@ -38,6 +59,18 @@ export function PickScene({ liveSpot, onGo }: { liveSpot: number; onGo: () => vo
         backgroundRepeat: "no-repeat",
       }}
     >
+      {/* go again or leave */}
+      <div className="flex items-center justify-between text-[9px]">
+        <button className="text-white/45 hover:text-white" onClick={() => setPhase("BOOT")}>
+          ⌂ HOME
+        </button>
+        {realMode && (
+          <button className="text-gold/80 hover:text-gold disabled:opacity-40" onClick={cashOutToWallet} disabled={cashingOut}>
+            {cashingOut ? "cashing out…" : "cash out to wallet ↗"}
+          </button>
+        )}
+      </div>
+
       {/* chart console */}
       <div className="border-2 border-neon/30 bg-black/50 p-3" style={{ boxShadow: "inset 0 0 18px rgba(61,245,255,0.08)" }}>
         <div className="mb-1 flex items-end justify-between">
@@ -100,28 +133,81 @@ export function PickScene({ liveSpot, onGo }: { liveSpot: number; onGo: () => vo
       </div>
 
       {/* stake + balance */}
-      <div className="flex items-center justify-between text-[10px]">
-        <span className="text-white/45">CREDITS {credits}</span>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-1.5 text-[10px]">
+        <div className="flex items-center justify-between">
+          <span className="text-white/45">BAL ${credits.toFixed(playMoney ? 0 : 2)}</span>
           <span className="text-white/45">STAKE</span>
+        </div>
+        <div className="flex items-center gap-2">
           {[5, 10, 25].map((v) => (
             <button
               key={v}
               onClick={() => configure({ stake: v })}
-              className={`border-2 px-2 py-1 ${stake === v ? "border-neon text-neon" : "border-white/15 text-white/45"}`}
+              className={`flex-1 border-2 py-1.5 ${stake === v ? "border-neon text-neon" : "border-white/15 text-white/45"}`}
             >
-              {v}
+              ${v}
             </button>
           ))}
+          <div
+            className={`flex flex-1 items-center border-2 px-2 py-1.5 ${
+              ![5, 10, 25].includes(stake) ? "border-gold text-gold" : "border-white/15 text-white/45"
+            }`}
+          >
+            <span>$</span>
+            <input
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={stake}
+              onChange={(e) => {
+                const v = Math.max(1, Math.floor(Number(e.target.value) || 0));
+                configure({ stake: Math.min(v, Math.max(1, Math.floor(credits))) });
+              }}
+              className="w-full bg-transparent text-center outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+              aria-label="custom stake"
+            />
+          </div>
         </div>
       </div>
 
-      <button disabled={stake > credits} onClick={onGo} className="arcade-btn text-sm disabled:opacity-40">
-        ▶ START CLIMB
-      </button>
-      <p className="-mt-1 text-center text-[8px] text-white/40">
-        stake {stake} · climb to win up to {Math.round(stake * (1 + risk.floorsPerWin * 0.2))}
-      </p>
+      {/* INSERT COIN — the start control, as an arcade token */}
+      <div className="flex flex-col items-center gap-1.5 pt-1">
+        <button
+          disabled={stake > credits}
+          onClick={onGo}
+          aria-label="start climb"
+          className="group relative h-20 w-20 rounded-full transition-transform active:translate-y-0.5 active:scale-95 disabled:opacity-40"
+          style={{
+            background: "radial-gradient(circle at 35% 30%, #ffe89a 0%, #ffd23f 38%, #e6a417 70%, #b87a0c 100%)",
+            boxShadow:
+              "0 0 22px rgba(255,210,63,0.55), inset 0 2px 3px rgba(255,255,255,0.7), inset 0 -4px 6px rgba(120,70,0,0.55)",
+            animation: stake > credits ? undefined : "floaty 2.4s ease-in-out infinite",
+          }}
+        >
+          {/* embossed rim */}
+          <span className="absolute inset-1.5 rounded-full border-2 border-[#b87a0c]/60" />
+          {/* coin face: a climbing arrow + $ */}
+          <span
+            className="absolute inset-0 flex flex-col items-center justify-center leading-none text-[#7a4d00]"
+            style={{ textShadow: "0 1px 0 rgba(255,255,255,0.5)" }}
+          >
+            <span className="text-lg">▲</span>
+            <span className="text-base font-black">$</span>
+          </span>
+          {/* sweeping shine */}
+          <span
+            className="pointer-events-none absolute inset-0 rounded-full opacity-70"
+            style={{
+              background: "linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.85) 50%, transparent 60%)",
+              animation: stake > credits ? undefined : "coinShine 2.8s linear infinite",
+            }}
+          />
+        </button>
+        <div className="text-gold text-glow text-xs tracking-widest">START CLIMB</div>
+        <p className="text-center text-[8px] text-white/40">
+          stake ${stake} · climb to win up to ${Math.round(stake * (1 + risk.floorsPerWin * 0.2))}
+        </p>
+      </div>
     </div>
   );
 }

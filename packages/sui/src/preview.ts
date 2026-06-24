@@ -8,6 +8,7 @@ import { Transaction } from "@mysten/sui/transactions";
 import { bcs } from "@mysten/sui/bcs";
 import {
   CLOCK_OBJECT,
+  DUSDC_TYPE,
   PREDICT_OBJECT,
   TARGET,
 } from "./constants.js";
@@ -62,6 +63,29 @@ export async function previewTrade(
     mintCost: readReturnU64(returns[0][0]),
     redeemPayout: readReturnU64(returns[1][0]),
   };
+}
+
+/**
+ * The player's spendable DUSDC inside their PredictManager — their on-chain
+ * arcade balance. Read-only (devInspect), so it's gas-free and reflects the
+ * live bankroll after every win/loss.
+ */
+export async function readManagerBalance(
+  client: SuiClient,
+  managerId: string,
+  sender = "0x0000000000000000000000000000000000000000000000000000000000000000",
+): Promise<bigint> {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: TARGET.managerBalance,
+    typeArguments: [DUSDC_TYPE],
+    arguments: [tx.object(managerId)],
+  });
+  const res = await client.devInspectTransactionBlock({ sender, transactionBlock: tx });
+  if (res.error) throw new Error(`readManagerBalance devInspect failed: ${res.error}`);
+  const ret = res.results?.at(-1)?.returnValues?.[0]?.[0];
+  if (!ret) throw new Error("readManagerBalance: missing return value");
+  return readReturnU64(ret);
 }
 
 /** ask_bounds(predict, oracle_id) -> (min, max). Used to clamp the RISK dial. */

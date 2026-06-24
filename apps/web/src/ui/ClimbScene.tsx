@@ -1,77 +1,69 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useGame } from "../store";
 import { PixiClimb } from "../game/PixiClimb";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { sfx } from "../game/audio";
 
 /**
- * CLIMB: the live price drives LOFI up/down. The CASH OUT button shows the
- * bankable amount and reacts to how the round is going (calm → glow → frantic).
- * Falling-stone tension is conveyed with red flicker + shake when losing.
- * (PixiJS canvas replaces these placeholders in the climb-engine step.)
+ * CLIMB: the live price drives LOFI up the tower with no timer — he climbs until
+ * he tops out (win → fly to the next building), gets knocked off (lose a life),
+ * or the player grabs the ledge to bank it. The RESOLVE beat shows the outcome
+ * before the in-game menu returns.
  */
-export function ClimbScene() {
-  const { phase, direction, risk, prog, liveFloors, liveCashOut, spot, entrySpot, roundEndsAt, floor, cashOut } = useGame();
+export function ClimbScene({ onCashOut }: { onCashOut: () => void }) {
+  const { phase, direction, risk, prog, liveFloors, liveCashOut, spot, entrySpot, floor, txStatus, lastResult } =
+    useGame();
   const arming = phase === "ARMING";
-  const [now, setNow] = useState(Date.now());
+  const resolving = phase === "RESOLVE";
+  const redeeming = phase === "REDEEM" || txStatus === "pending";
 
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 100);
-    return () => clearInterval(id);
-  }, []);
-
-  const totalMs = 14_000;
-  const remaining = Math.max(0, roundEndsAt - now);
-  const remFrac = Math.min(1, remaining / totalMs);
   const winning = prog >= 0;
   const losing = prog < -0.15;
-  const tension = remaining > 0 && remFrac < 0.25; // final seconds
+  const failing = prog < -0.6; // close to being knocked off
 
-  // heartbeat thud while the clock runs down
+  // heartbeat thud when the call is going badly
   useEffect(() => {
-    if (!tension) return;
-    const id = setInterval(() => sfx.heartbeat(), 600);
+    if (!failing || phase !== "CLIMB") return;
+    const id = setInterval(() => sfx.heartbeat(), 650);
     return () => clearInterval(id);
-  }, [tension]);
+  }, [failing, phase]);
 
   const cashOutGlow = winning ? Math.min(1, 0.3 + prog) : 0.15;
+  // altitude/momentum bar: centred at 0, fills toward the top as the call wins.
+  const climbFrac = Math.max(0, Math.min(1, (prog + 0.2) / 1.2));
 
   return (
-    <div
-      className="relative flex flex-1 flex-col px-4 py-3"
-      style={{ animation: losing ? "shake 0.18s linear infinite" : undefined }}
-    >
-      {/* danger wash when losing / tension vignette in final seconds */}
+    <div className="relative flex flex-1 flex-col px-4 py-3">
+      {/* danger wash when the call is going against you */}
       <div
         className="pointer-events-none absolute inset-0 z-0 transition-opacity"
         style={{
           background: losing
-            ? "radial-gradient(circle at center, transparent 40%, rgba(255,40,40,0.35))"
+            ? "radial-gradient(circle at center, transparent 40%, rgba(255,40,40,0.32))"
             : "transparent",
-          opacity: losing ? 0.6 + 0.4 * Math.abs(prog) : 0,
+          opacity: losing ? 0.5 + 0.5 * Math.min(1, Math.abs(prog)) : 0,
         }}
       />
-      {tension && (
-        <div
-          className="pointer-events-none absolute inset-0 z-0"
-          style={{ boxShadow: "inset 0 0 120px 40px rgba(0,0,0,0.7)" }}
-        />
-      )}
 
-      {/* countdown */}
+      {/* header: the call + a climb-progress bar (no timer) */}
       <div className="z-10 mb-2">
         <div className="flex justify-between text-[10px]">
-          <span className="text-white/70">{direction === "UP" ? "▲ UP" : "▼ DOWN"} · {risk.label}</span>
-          <span className={tension ? "text-danger animate-blink" : "text-neon"}>
-            {arming ? "READY?" : `${(remaining / 1000).toFixed(1)}s`}
+          <span className="text-white/70">
+            {direction === "UP" ? "▲ UP" : "▼ DOWN"} · {risk.label}
+          </span>
+          <span className={failing ? "text-danger animate-blink" : winning ? "text-warm" : "text-white/60"}>
+            {arming ? "READY?" : resolving ? "—" : winning ? "CLIMBING" : "SLIPPING"}
           </span>
         </div>
         <div className="mt-1 h-2 w-full bg-white/10">
-          <div className={`h-full ${tension ? "bg-danger" : "bg-neon"}`} style={{ width: `${arming ? 100 : remFrac * 100}%` }} />
+          <div
+            className="h-full transition-all"
+            style={{ width: `${arming ? 0 : climbFrac * 100}%`, background: winning ? "#39ff8b" : "#ff4d4d" }}
+          />
         </div>
       </div>
 
-      {/* the tower + LOFI — rendered on the PixiJS canvas */}
+      {/* the tower + LOFI */}
       <div className="z-10 relative flex-1 overflow-hidden border-2 border-white/15 bg-black/30">
         <ErrorBoundary>
           <PixiClimb />
@@ -80,8 +72,22 @@ export function ClimbScene() {
           FLOOR {floor + liveFloors}
         </div>
         {arming && (
-          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-            <span className="text-gold text-glow animate-blink text-xl">GET READY</span>
+          <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center">
+            <span className="text-gold text-glow animate-blink text-[10px] tracking-widest">READYING…</span>
+          </div>
+        )}
+        {resolving && lastResult && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-1">
+            <span
+              className={`text-glow text-xl ${lastResult.outcome === "LOSS" ? "text-danger" : "text-warm"}`}
+            >
+              {lastResult.outcome === "WIN"
+                ? "TO THE TOP!"
+                : lastResult.outcome === "CASHOUT"
+                  ? "LEDGE GRABBED!"
+                  : "LOFI FELL!"}
+            </span>
+            {lastResult.outcome !== "LOSS" && <span className="text-gold text-[10px]">+{lastResult.floorsGained} 🏢</span>}
           </div>
         )}
       </div>
@@ -90,18 +96,33 @@ export function ClimbScene() {
         ${spot.toFixed(0)} {spot >= entrySpot ? "▲" : "▼"} from ${entrySpot.toFixed(0)}
       </div>
 
-      {/* CASH OUT — alive, reacts to PnL */}
+      {/* CASH OUT — alive, reacts to PnL. Shows the real $ you'd bank now. */}
       <button
-        onClick={cashOut}
-        disabled={arming}
-        className="z-10 mt-2 w-full border-b-4 border-black/40 py-4 text-sm uppercase tracking-wider text-ink transition-all active:translate-y-0.5 disabled:opacity-50"
+        onClick={onCashOut}
+        disabled={arming || resolving || redeeming}
+        className="z-10 mt-2 flex w-full items-center justify-between rounded-xl border border-white/15 px-4 py-3 transition-all active:translate-y-0.5 disabled:opacity-60"
         style={{
-          background: arming ? "#5a5566" : winning ? "#ffd23f" : "#8a8597",
-          boxShadow: arming ? "none" : `0 0 ${10 + cashOutGlow * 30}px rgba(255,210,63,${cashOutGlow})`,
-          transform: !arming && winning && prog > 0.5 ? "scale(1.03)" : "scale(1)",
+          background:
+            arming || resolving || redeeming ? "rgba(90,85,102,0.5)" : winning ? "rgba(255,210,63,0.14)" : "rgba(138,133,151,0.14)",
+          boxShadow: arming || resolving || redeeming ? "none" : `0 0 ${8 + cashOutGlow * 26}px rgba(255,210,63,${cashOutGlow})`,
+          borderColor: winning && !arming && !resolving && !redeeming ? "rgba(255,210,63,0.5)" : "rgba(255,255,255,0.15)",
         }}
       >
-        {arming ? "STEADY…" : `GRAB THE LEDGE · ${liveCashOut}`}
+        <span className="flex flex-col items-start leading-none">
+          <span className="text-[8px] uppercase tracking-[0.2em] text-white/55">
+            {arming ? "steady…" : resolving ? "—" : redeeming ? "grabbing…" : "grab the ledge"}
+          </span>
+          <span className="mt-1 text-[9px] text-white/40">cash out now</span>
+        </span>
+        <span
+          className="flex items-center gap-1.5 text-lg font-black"
+          style={{
+            color: winning && !arming && !resolving && !redeeming ? "#ffd23f" : "#cfcbd8",
+            textShadow: winning && !arming && !resolving && !redeeming ? "0 0 10px rgba(255,210,63,0.6)" : "none",
+          }}
+        >
+          💵 ${liveCashOut.toFixed(2)}
+        </span>
       </button>
     </div>
   );

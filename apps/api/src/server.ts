@@ -4,6 +4,7 @@
  * Custodies nothing — all value flow is on-chain via the player's wallet.
  */
 
+import "./env.js"; // load apps/api/.env before anything reads process.env
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";

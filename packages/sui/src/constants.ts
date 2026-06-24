@@ -51,6 +51,7 @@ export const TARGET = {
   redeemPermissionless: `${PREDICT_PACKAGE}::predict::redeem_permissionless`,
   managerDeposit: `${PREDICT_PACKAGE}::predict_manager::deposit`,
   managerWithdraw: `${PREDICT_PACKAGE}::predict_manager::withdraw`,
+  managerBalance: `${PREDICT_PACKAGE}::predict_manager::balance`,
   marketKeyNew: `${PREDICT_PACKAGE}::market_key::new`,
 } as const;
 

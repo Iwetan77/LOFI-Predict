@@ -38,6 +38,11 @@ export class SimPriceSource implements PriceSource {
     return this.spot;
   }
 
+  /** Re-anchor the walk to a real price (keeps practice near live BTC). */
+  setSpot(v: number) {
+    if (v > 0) this.spot = v;
+  }
+
   subscribe(fn: (t: Tick) => void) {
     this.subs.add(fn);
     return () => this.subs.delete(fn);
@@ -57,5 +62,73 @@ export class SimPriceSource implements PriceSource {
   stop() {
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
+  }
+}
+
+/**
+ * Live BTC tape from the relay's `/live` WebSocket. Subscribes to one oracle and
+ * emits real price ticks. Used by real-money climbs so the yeti rises and falls
+ * with the actual market the player minted against. If the socket drops, the
+ * last spot is held until it reconnects.
+ */
+export class LivePriceSource implements PriceSource {
+  private spot: number | undefined;
+  private subs = new Set<(t: Tick) => void>();
+  private ws?: WebSocket;
+  private closed = false;
+  private reconnectT?: ReturnType<typeof setTimeout>;
+
+  constructor(
+    private readonly oracleId: string,
+    private readonly apiBase: string,
+    seedSpot?: number,
+  ) {
+    this.spot = seedSpot;
+  }
+
+  current() {
+    return this.spot;
+  }
+
+  subscribe(fn: (t: Tick) => void) {
+    this.subs.add(fn);
+    return () => this.subs.delete(fn);
+  }
+
+  start() {
+    this.closed = false;
+    this.connect();
+  }
+
+  private connect() {
+    if (this.closed) return;
+    const url = this.apiBase.replace(/^http/, "ws") + "/live";
+    const ws = new WebSocket(url);
+    this.ws = ws;
+    ws.onopen = () => ws.send(JSON.stringify({ subscribe: this.oracleId }));
+    ws.onmessage = (ev) => {
+      try {
+        const m = JSON.parse(ev.data);
+        if (m.type === "price" && typeof m.spot === "number") {
+          this.spot = m.spot;
+          const tick = { spot: m.spot, t: Date.now() };
+          for (const fn of this.subs) fn(tick);
+        }
+      } catch {
+        /* ignore malformed frames */
+      }
+    };
+    ws.onclose = () => {
+      if (this.closed) return;
+      this.reconnectT = setTimeout(() => this.connect(), 1500);
+    };
+    ws.onerror = () => ws.close();
+  }
+
+  stop() {
+    this.closed = true;
+    if (this.reconnectT) clearTimeout(this.reconnectT);
+    this.ws?.close();
+    this.ws = undefined;
   }
 }

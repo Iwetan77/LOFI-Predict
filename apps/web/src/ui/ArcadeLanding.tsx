@@ -1,5 +1,7 @@
 import { useMemo } from "react";
+import { ConnectModal } from "@mysten/dapp-kit";
 import { useGame } from "../store";
+import { useSigner } from "../auth/useSigner";
 
 /**
  * The attract / landing screen — a coin-op cabinet. This is the disguise: a
@@ -9,6 +11,8 @@ import { useGame } from "../store";
 export function ArcadeLanding() {
   const pressStart = useGame((s) => s.pressStart);
   const highScore = useGame((s) => s.highScore);
+  const setPhase = useGame((s) => s.setPhase);
+  const { signedIn, address, name, mode, googleSignIn, signOut } = useSigner();
 
   // A static field of tower windows that gently twinkle.
   const windows = useMemo(
@@ -80,8 +84,8 @@ export function ArcadeLanding() {
           </p>
         </div>
 
-        {/* start + score */}
-        <div className="flex w-full flex-col items-center gap-3">
+        {/* start + sign-in + score */}
+        <div className="flex w-full flex-col items-center gap-2.5">
           <div className="flex w-full justify-between text-[9px]">
             <span className="text-neon">CREDIT 00</span>
             <span className="text-gold text-glow">HI {String(highScore).padStart(4, "0")}</span>
@@ -89,7 +93,32 @@ export function ArcadeLanding() {
           <button className="arcade-btn animate-blink text-sm" onClick={pressStart}>
             ▶ PRESS START
           </button>
-          <p className="text-[8px] text-white/40">INSERT COIN TO CONTINUE?</p>
+          <div className="flex w-full items-center gap-2 text-[7px] tracking-[0.25em] text-white/30">
+            <span className="h-px flex-1 bg-white/15" />
+            OR PLAY FOR REAL
+            <span className="h-px flex-1 bg-white/15" />
+          </div>
+          {signedIn && address ? (
+            <>
+              <button className="arcade-btn text-xs" onClick={() => setPhase("FUND")}>
+                ▶ FUEL UP &amp; PLAY FOR REAL
+              </button>
+              <p className="text-[8px] text-white/40">
+                {mode === "wallet" ? "wallet" : "signed in"}: {name ?? `${address.slice(0, 6)}…${address.slice(-4)}`}
+                {" · "}
+                <button className="underline" onClick={signOut}>
+                  {mode === "wallet" ? "disconnect" : "sign out"}
+                </button>
+              </p>
+            </>
+          ) : (
+            <div className="flex w-full flex-col items-stretch gap-2">
+              <ConnectModal trigger={<button className="arcade-btn w-full text-xs">▶ CONNECT WALLET</button>} />
+              <button className="arcade-btn text-xs" onClick={googleSignIn}>
+                ▶ SIGN IN WITH GOOGLE
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
