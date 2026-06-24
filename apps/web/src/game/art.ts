@@ -9,6 +9,7 @@ import { Assets, type Texture } from "pixi.js";
 export const ART = {
   lofi: "/art/lofi.png",
   btc: "/art/token_btc.svg",
+  sky: "/art/sky.jpg",
   stones: ["/art/stone1.png", "/art/stone2.png"],
   building: (tier: number) => `/art/building_tier${Math.min(5, Math.max(1, tier))}.png`,
 };
