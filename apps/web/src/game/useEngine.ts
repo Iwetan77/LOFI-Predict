@@ -171,7 +171,23 @@ export function useEngine() {
       : { outcome, floorsGained, credited, staked: stake };
     const lives = useGame.getState().applyResult(result, chainCredits);
 
-    // Brief win(fly)/lose(fall) beat, then the in-game menu (or game over).
+    // Grabbing the ledge ENDS the run — bank everything back to the wallet, then
+    // show the run summary. No continuing after a cash-out.
+    if (reason === "CASHOUT") {
+      const c = useGame.getState();
+      if (c.realMode && c.managerId && c.credits > 0) {
+        try {
+          await sendRef.current({ action: "withdraw", managerId: c.managerId, amount: String(Math.floor(c.credits * 1e6)) });
+          useGame.getState().syncBalance(0);
+        } catch (e) {
+          useGame.getState().setTx("error", (e as Error).message);
+        }
+      }
+      window.setTimeout(() => useGame.getState().setPhase("GAME_OVER"), 1200);
+      return;
+    }
+
+    // Win (fly) / lose (fall): brief beat, then the in-game menu (or game over).
     window.setTimeout(() => {
       if (lives <= 0) useGame.getState().setPhase("GAME_OVER");
       else useGame.getState().nextRound();

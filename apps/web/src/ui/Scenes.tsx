@@ -91,12 +91,20 @@ export function BuildingSwapScene({ onNext }: { onNext: () => void }) {
 }
 
 export function GameOverScene() {
-  const { floor, highScore, restart } = useGame();
+  const { floor, highScore, restart, lastResult, realMode } = useGame();
+  const cashedOut = lastResult?.outcome === "CASHOUT";
   return (
     <div className="relative flex flex-1 flex-col items-center justify-center gap-6 overflow-hidden px-8 text-center">
       <FlyingLofi count={3} />
-      <h2 className="text-danger text-glow z-10 text-2xl">GAME OVER</h2>
+      <h2 className={`text-glow z-10 text-2xl ${cashedOut ? "text-warm" : "text-danger"}`}>
+        {cashedOut ? "CASHED OUT!" : "GAME OVER"}
+      </h2>
       <p className="z-10 text-sm text-white">FINAL HEIGHT · FLOOR {floor}</p>
+      {cashedOut && (
+        <p className="z-10 text-[10px] text-warm">
+          {realMode ? "winnings sent to your wallet ✓" : "you grabbed the ledge and banked it"}
+        </p>
+      )}
       <p className="z-10 text-[10px] text-gold">HIGH SCORE {highScore}</p>
       <button className="arcade-btn z-10 text-sm animate-blink" onClick={restart}>
         ▶ INSERT COIN TO CONTINUE?

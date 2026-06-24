@@ -14,10 +14,16 @@ export function NextMenu({ onContinue, onExit }: { onContinue: () => void; onExi
   const broke = realMode && stake > credits;
 
   return (
-    <div className="pointer-events-auto absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3">
-      <div className="flex items-center justify-between text-[10px]">
+    <div
+      className="pointer-events-auto absolute inset-x-0 top-0 z-20 flex flex-col gap-2 border-b-2 border-neon/40 p-3"
+      style={{
+        background: "linear-gradient(to bottom, rgba(7,3,22,0.96) 0%, rgba(7,3,22,0.9) 70%, rgba(7,3,22,0.78) 100%)",
+        boxShadow: "0 6px 24px rgba(0,0,0,0.6)",
+      }}
+    >
+      <div className="flex items-center justify-between text-[11px]">
         <span className="text-gold text-glow">NEXT CALL</span>
-        <span className="text-white/60">BAL ${credits.toFixed(realMode ? 2 : 0)}</span>
+        <span className="text-white">BAL ${credits.toFixed(realMode ? 2 : 0)}</span>
       </div>
 
       {fueling ? (
@@ -46,7 +52,7 @@ export function NextMenu({ onContinue, onExit }: { onContinue: () => void; onExi
               <button
                 key={r.id}
                 onClick={() => configure({ risk: r })}
-                className={`flex-1 border py-1 ${risk.id === r.id ? "border-gold text-gold" : "border-white/15 text-white/45"}`}
+                className={`flex-1 border py-1 ${risk.id === r.id ? "border-gold bg-gold/10 text-gold" : "border-white/25 text-white/80"}`}
               >
                 {r.label}
               </button>
@@ -57,12 +63,12 @@ export function NextMenu({ onContinue, onExit }: { onContinue: () => void; onExi
               <button
                 key={v}
                 onClick={() => configure({ stake: v })}
-                className={`flex-1 border-2 py-1 ${stake === v ? "border-neon text-neon" : "border-white/15 text-white/45"}`}
+                className={`flex-1 border-2 py-1 ${stake === v ? "border-neon bg-neon/10 text-neon" : "border-white/25 text-white/80"}`}
               >
                 ${v}
               </button>
             ))}
-            <div className="flex flex-1 items-center border-2 border-white/15 px-1.5 py-1 text-white/70">
+            <div className="flex flex-1 items-center border-2 border-white/25 px-1.5 py-1 text-white">
               <span>$</span>
               <input
                 type="number"
