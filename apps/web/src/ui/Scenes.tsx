@@ -1,5 +1,6 @@
 import { useGame } from "../store";
 import { Confetti } from "./Confetti";
+import { FlyingLofi } from "./FlyingLofi";
 import { useZkLogin } from "../auth/useZkLogin";
 
 /** Brief play-money intro before the first practice climbs. */
@@ -9,7 +10,7 @@ export function TutorialScene() {
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-8 text-center">
       <h2 className="text-neon text-glow text-lg">PRACTICE CLIMB</h2>
       <p className="text-[10px] leading-relaxed text-white/75">
-        pick a tower. call UP or DOWN.
+        read the chart. call UP or DOWN.
         <br />
         if you're right, lofi climbs.
         <br />
@@ -35,6 +36,12 @@ export function SummaryScene({ onNext }: { onNext: () => void }) {
       <h2 className={`text-glow text-xl ${win ? "text-warm" : "text-danger"}`}>
         {outcome === "WIN" ? "FLOOR REACHED!" : outcome === "CASHOUT" ? "LEDGE GRABBED!" : "LOFI FELL!"}
       </h2>
+      <img
+        src={win ? "/art/lofi_cheer.png" : "/art/lofi_fall.png"}
+        alt=""
+        className="h-28 w-28 animate-floaty object-contain"
+        style={{ filter: `drop-shadow(0 0 12px ${win ? "rgba(57,255,139,0.5)" : "rgba(255,77,77,0.5)"})` }}
+      />
       {win ? (
         <p className="text-sm text-white">+{floorsGained} 🏢 · FLOOR {floor}</p>
       ) : (
@@ -69,11 +76,12 @@ export function BuildingSwapScene({ onNext }: { onNext: () => void }) {
 export function GameOverScene() {
   const { floor, highScore, restart } = useGame();
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-8 text-center">
-      <h2 className="text-danger text-glow text-2xl">GAME OVER</h2>
-      <p className="text-sm text-white">FINAL HEIGHT · FLOOR {floor}</p>
-      <p className="text-[10px] text-gold">HIGH SCORE {highScore}</p>
-      <button className="arcade-btn text-sm animate-blink" onClick={restart}>
+    <div className="relative flex flex-1 flex-col items-center justify-center gap-6 overflow-hidden px-8 text-center">
+      <FlyingLofi count={3} />
+      <h2 className="text-danger text-glow z-10 text-2xl">GAME OVER</h2>
+      <p className="z-10 text-sm text-white">FINAL HEIGHT · FLOOR {floor}</p>
+      <p className="z-10 text-[10px] text-gold">HIGH SCORE {highScore}</p>
+      <button className="arcade-btn z-10 text-sm animate-blink" onClick={restart}>
         ▶ INSERT COIN TO CONTINUE?
       </button>
     </div>

@@ -7,11 +7,16 @@
 import { Assets, type Texture } from "pixi.js";
 
 export const ART = {
-  lofi: "/art/lofi.png",
+  lofi: "/art/lofi.png", // idle / standing placeholder
+  lofiClimb: "/art/lofi_climb.png",
+  lofiFall: "/art/lofi_fall.png",
+  lofiCheer: "/art/lofi_cheer.png",
+  lofiFly: "/art/lofi_fly.png",
   btc: "/art/token_btc.svg",
   sky: "/art/sky.jpg",
   stones: ["/art/stone1.png", "/art/stone2.png"],
-  building: (tier: number) => `/art/building_tier${Math.min(5, Math.max(1, tier))}.png`,
+  /** 5 distinct towers; the climb cycles through them so all get seen. */
+  building: (n: number) => `/art/building_tier${((((n - 1) % 5) + 5) % 5) + 1}.png`,
 };
 
 /** Load a texture, or null if it isn't there (so callers can fall back). */

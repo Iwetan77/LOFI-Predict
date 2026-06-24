@@ -100,3 +100,11 @@ body {
 
 .marquee-track { animation: marquee 18s linear infinite; }
 .flicker { animation: flicker 4s linear infinite; }
+
+@keyframes flyAround {
+  0%   { left: 4%;  top: 68%; transform: rotate(-8deg) scaleX(1); }
+  25%  { left: 58%; top: 14%; transform: rotate(8deg) scaleX(1); }
+  50%  { left: 72%; top: 58%; transform: rotate(-6deg) scaleX(-1); }
+  75%  { left: 18%; top: 34%; transform: rotate(7deg) scaleX(-1); }
+  100% { left: 4%;  top: 68%; transform: rotate(-8deg) scaleX(1); }
+}

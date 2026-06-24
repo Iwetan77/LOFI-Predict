@@ -81,6 +81,36 @@ class Sfx {
     this.tone(70, 0.12, "sine", 0, 0.9);
     this.tone(60, 0.14, "sine", 0.18, 0.8);
   }
+
+  /** Low percussive hit when a stone connects with LOFI. */
+  thud() {
+    this.tone(120, 0.12, "square", 0, 0.9);
+    this.sweep(180, 50, 0.18, "triangle");
+  }
+
+  // ── looping chiptune bed (during the climb) ──
+  private musicTimer: ReturnType<typeof setInterval> | null = null;
+  private step = 0;
+
+  startMusic() {
+    this.unlock();
+    if (this.musicTimer || !this.ctx) return;
+    // a gentle lo-fi loop: walking bass + sparse arpeggio.
+    const bass = [110, 110, 146.83, 110, 130.81, 130.81, 98, 110];
+    const arp = [440, 0, 554.37, 659.25, 0, 554.37, 440, 0];
+    this.musicTimer = setInterval(() => {
+      if (this.muted || !this.ctx) return;
+      const i = this.step % bass.length;
+      this.tone(bass[i] / 2, 0.22, "triangle", 0, 0.5);
+      if (arp[i]) this.tone(arp[i], 0.12, "square", 0.0, 0.18);
+      this.step++;
+    }, 260);
+  }
+
+  stopMusic() {
+    if (this.musicTimer) clearInterval(this.musicTimer);
+    this.musicTimer = null;
+  }
 }
 
 export const sfx = new Sfx();
