@@ -1,24 +1,8 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-  plugins: [
-    react(),
-    VitePWA({
-      registerType: "autoUpdate",
-      manifest: {
-        name: "LOFI PREDICT",
-        short_name: "LOFI",
-        description: "Help LOFI climb. Call it right, climb higher.",
-        theme_color: "#0b0420",
-        background_color: "#0b0420",
-        display: "fullscreen",
-        orientation: "portrait",
-        icons: [],
-      },
-    }),
-  ],
+  plugins: [react()],
   server: {
     host: true,
     // Same-origin proxy to the relay/auth API so the zkLogin session cookie

@@ -1,0 +1,14 @@
+{
+  "name": "LOFI PREDICT",
+  "short_name": "LOFI",
+  "description": "Help LOFI climb. Call it right, climb higher.",
+  "theme_color": "#0b0420",
+  "background_color": "#0b0420",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "start_url": "/",
+  "icons": [
+    { "src": "/art/lofi.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/art/lofi.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

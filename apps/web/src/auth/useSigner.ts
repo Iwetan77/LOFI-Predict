@@ -11,8 +11,11 @@ import {
   buildMint,
   buildRedeem,
   readManagerBalance,
+  fetchOracles,
+  pickClimbOracle,
+  latestPrice,
 } from "@lofi/sui";
-import { useZkLogin, type GameAction, type MarketRef, type TxResult, type WalletState } from "./useZkLogin";
+import { useZkLogin, type ClimbMarket, type GameAction, type MarketRef, type TxResult, type WalletState } from "./useZkLogin";
 
 type SignerMode = "wallet" | "zk" | null;
 
@@ -103,6 +106,26 @@ export function useSigner() {
     else await zk.signOut();
   }, [walletAddress, disconnect, zk]);
 
+  // The current BTC climb market — read straight from the public Predict server
+  // + fullnode (both CORS-open), so it needs no backend of ours.
+  const getMarket = useCallback(async (): Promise<ClimbMarket> => {
+    const o = pickClimbOracle(await fetchOracles(), { asset: "BTC", minMsLeft: 120_000 });
+    if (!o) throw new Error("no active climb right now");
+    const tick = await latestPrice(client, o.oracle_id);
+    if (!tick) throw new Error("no live price yet");
+    const minStrike = BigInt(o.min_strike);
+    const ts = BigInt(o.tick_size);
+    const strike = minStrike + ((tick.spotRaw - minStrike + ts / 2n) / ts) * ts;
+    return {
+      oracleId: o.oracle_id,
+      expiry: o.expiry,
+      strike: strike.toString(),
+      spot: tick.spot,
+      spotRaw: tick.spotRaw.toString(),
+      msLeft: o.expiry - Date.now(),
+    };
+  }, [client]);
+
   return {
     mode,
     address,
@@ -110,7 +133,7 @@ export function useSigner() {
     name: zk.user?.name ?? null,
     send: mode === "wallet" ? walletSend : zk.send,
     getWallet: mode === "wallet" ? walletGetWallet : zk.getWallet,
-    getMarket: zk.getMarket, // public market fetch — same for both paths
+    getMarket, // client-side: Predict server + fullnode, no backend needed
     googleSignIn: zk.signIn,
     signOut,
   };

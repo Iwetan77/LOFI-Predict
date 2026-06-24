@@ -8,6 +8,9 @@
  *    from.)
  */
 
+import type { SuiClient } from "@mysten/sui/client";
+import { latestPrice } from "@lofi/sui";
+
 export interface Tick {
   spot: number;
   t: number;
@@ -66,21 +69,20 @@ export class SimPriceSource implements PriceSource {
 }
 
 /**
- * Live BTC tape from the relay's `/live` WebSocket. Subscribes to one oracle and
- * emits real price ticks. Used by real-money climbs so the yeti rises and falls
- * with the actual market the player minted against. If the socket drops, the
- * last spot is held until it reconnects.
+ * Live BTC tape polled straight from the Sui fullnode (CORS-open), so real-money
+ * climbs ride the actual oracle the player minted against with no backend of
+ * ours. We poll the latest `OraclePricesUpdated` for the oracle every couple of
+ * seconds and hold the last spot between updates.
  */
 export class LivePriceSource implements PriceSource {
   private spot: number | undefined;
   private subs = new Set<(t: Tick) => void>();
-  private ws?: WebSocket;
-  private closed = false;
-  private reconnectT?: ReturnType<typeof setTimeout>;
+  private timer?: ReturnType<typeof setInterval>;
+  private stopped = false;
 
   constructor(
     private readonly oracleId: string,
-    private readonly apiBase: string,
+    private readonly client: SuiClient,
     seedSpot?: number,
   ) {
     this.spot = seedSpot;
@@ -95,40 +97,28 @@ export class LivePriceSource implements PriceSource {
     return () => this.subs.delete(fn);
   }
 
-  start() {
-    this.closed = false;
-    this.connect();
+  start(intervalMs = 2000) {
+    this.stopped = false;
+    void this.poll();
+    this.timer = setInterval(() => void this.poll(), intervalMs);
   }
 
-  private connect() {
-    if (this.closed) return;
-    const url = this.apiBase.replace(/^http/, "ws") + "/live";
-    const ws = new WebSocket(url);
-    this.ws = ws;
-    ws.onopen = () => ws.send(JSON.stringify({ subscribe: this.oracleId }));
-    ws.onmessage = (ev) => {
-      try {
-        const m = JSON.parse(ev.data);
-        if (m.type === "price" && typeof m.spot === "number") {
-          this.spot = m.spot;
-          const tick = { spot: m.spot, t: Date.now() };
-          for (const fn of this.subs) fn(tick);
-        }
-      } catch {
-        /* ignore malformed frames */
-      }
-    };
-    ws.onclose = () => {
-      if (this.closed) return;
-      this.reconnectT = setTimeout(() => this.connect(), 1500);
-    };
-    ws.onerror = () => ws.close();
+  private async poll() {
+    if (this.stopped) return;
+    try {
+      const tick = await latestPrice(this.client, this.oracleId);
+      if (this.stopped || !tick) return;
+      this.spot = tick.spot;
+      const frame = { spot: tick.spot, t: Date.now() };
+      for (const fn of this.subs) fn(frame);
+    } catch {
+      /* transient fullnode hiccup — keep the last spot */
+    }
   }
 
   stop() {
-    this.closed = true;
-    if (this.reconnectT) clearTimeout(this.reconnectT);
-    this.ws?.close();
-    this.ws = undefined;
+    this.stopped = true;
+    if (this.timer) clearInterval(this.timer);
+    this.timer = undefined;
   }
 }

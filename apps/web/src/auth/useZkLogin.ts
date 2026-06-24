@@ -8,9 +8,19 @@ import {
   signTxBytes,
 } from "./ephemeral";
 
-/** All requests go same-origin through the Vite proxy → first-party cookie. */
-const api = (p: string, init?: RequestInit) =>
-  fetch(`/api/zklogin${p}`, { credentials: "include", ...init }).then((r) => r.json());
+/**
+ * All requests go same-origin through the Vite proxy → first-party cookie.
+ * Resolves to {} if the auth backend isn't deployed (e.g. wallet-only static
+ * hosting) so the rest of the app keeps working.
+ */
+const api = async (p: string, init?: RequestInit) => {
+  try {
+    const r = await fetch(`/api/zklogin${p}`, { credentials: "include", ...init });
+    return await r.json();
+  } catch {
+    return {};
+  }
+};
 
 export interface ZkUser {
   address: string;

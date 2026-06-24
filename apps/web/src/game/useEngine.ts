@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSuiClient } from "@mysten/dapp-kit";
 import { useGame } from "../store";
 import { SimPriceSource, LivePriceSource, type PriceSource } from "./priceSource";
 import { useSigner } from "../auth/useSigner";
@@ -7,8 +8,6 @@ import { type MarketRef } from "../auth/useZkLogin";
 /** Position size minted per credit of stake (6-dec). stake $5 → 5.0 position. */
 const QTY_PER_STAKE = 1_000_000n;
 const qtyOf = (stake: number) => (BigInt(Math.max(1, Math.round(stake))) * QTY_PER_STAKE).toString();
-
-declare const __API_BASE__: string;
 
 /** Pull a 6-dec DUSDC amount field out of the first matching on-chain event. */
 function eventAmount(events: { type: string; parsedJson: unknown }[], endsWith: string, fields: string[]): number {
@@ -28,6 +27,7 @@ function eventAmount(events: { type: string; parsedJson: unknown }[], endsWith: 
  */
 export function useEngine() {
   const { send, getMarket } = useSigner();
+  const client = useSuiClient();
   const sendRef = useRef(send);
   const getMarketRef = useRef(getMarket);
   sendRef.current = send;
@@ -118,7 +118,7 @@ export function useEngine() {
       const cost = eventAmount(res.events, "PositionMinted", ["cost"]);
 
       liveRef.current?.stop();
-      liveRef.current = new LivePriceSource(market.oracleId, __API_BASE__, market.spot);
+      liveRef.current = new LivePriceSource(market.oracleId, client, market.spot);
       liveRef.current.start();
       subscribeTo(liveRef.current);
 
