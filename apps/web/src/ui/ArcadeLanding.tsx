@@ -59,10 +59,11 @@ export function ArcadeLanding() {
 
         {/* yeti on a ledge (placeholder until art drops in) */}
         <div className="flex flex-col items-center gap-2">
-          <div
-            className="h-20 w-20 animate-floaty border-4 border-black/50 bg-warm/80"
-            style={{ imageRendering: "pixelated", boxShadow: "0 0 18px rgba(57,255,139,0.5)" }}
-            aria-label="lofi placeholder"
+          <img
+            src="/art/lofi.png"
+            alt="LOFI the yeti"
+            className="h-24 w-24 animate-floaty object-contain"
+            style={{ filter: "drop-shadow(0 0 14px rgba(57,255,139,0.55))" }}
           />
           <div className="h-2 w-24 bg-white/30" aria-label="ledge" />
           <p className="mt-2 max-w-[16rem] text-center text-[9px] leading-relaxed text-white/70">

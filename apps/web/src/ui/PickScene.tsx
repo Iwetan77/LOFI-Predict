@@ -15,8 +15,9 @@ export function PickScene({ liveSpot, onGo }: { liveSpot: number; onGo: () => vo
           <button
             key={t}
             onClick={() => configure({ token: t })}
-            className={`pixel-panel text-xs ${token === t ? "text-neon" : "text-white/50"}`}
+            className={`pixel-panel flex flex-col items-center text-xs ${token === t ? "text-neon" : "text-white/50"}`}
           >
+            <img src="/art/token_btc.svg" alt="" className="mb-1 h-8 w-8" />
             {t}
             <div className="mt-1 text-[8px] text-white/60">${liveSpot.toFixed(0)}</div>
           </button>
