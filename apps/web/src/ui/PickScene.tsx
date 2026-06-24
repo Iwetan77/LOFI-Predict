@@ -3,6 +3,7 @@ import { useGame } from "../store";
 import { useSigner } from "../auth/useSigner";
 import { RISK_TIERS } from "../game/round";
 import { BtcChart } from "./BtcChart";
+import { FuelUp } from "./FuelUp";
 
 /**
  * PICK — the console. A live BTC chart you can read, then one call: how high
@@ -14,6 +15,7 @@ export function PickScene({ liveSpot, onGo }: { liveSpot: number; onGo: () => vo
   const configure = useGame((s) => s.configure);
   const { send } = useSigner();
   const [cashingOut, setCashingOut] = useState(false);
+  const [fueling, setFueling] = useState(false);
 
   // Pull the whole on-chain balance back to the wallet, then head home.
   const cashOutToWallet = async () => {
@@ -136,8 +138,14 @@ export function PickScene({ liveSpot, onGo }: { liveSpot: number; onGo: () => vo
       <div className="flex flex-col gap-1.5 text-[10px]">
         <div className="flex items-center justify-between">
           <span className="text-white/45">BAL ${credits.toFixed(playMoney ? 0 : 2)}</span>
+          {realMode && (
+            <button onClick={() => setFueling((f) => !f)} className="text-gold/80 hover:text-gold">
+              ⛽ FUEL UP
+            </button>
+          )}
           <span className="text-white/45">STAKE</span>
         </div>
+        {fueling && <FuelUp onClose={() => setFueling(false)} />}
         <div className="flex items-center gap-2">
           {[5, 10, 25].map((v) => (
             <button

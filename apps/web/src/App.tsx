@@ -17,7 +17,7 @@ import {
 export default function App() {
   const phase = useGame((s) => s.phase);
   const nextRound = useGame((s) => s.nextRound);
-  const { liveSpot, startRound, cashOut } = useEngine();
+  const { liveSpot, startRound, cashOut, exitGame } = useEngine();
   useSound();
 
   return (
@@ -26,8 +26,8 @@ export default function App() {
       {phase === "BOOT" && <ArcadeLanding />}
       {phase === "TUTORIAL" && <TutorialScene />}
       {phase === "PICK" && <PickScene liveSpot={liveSpot} onGo={startRound} />}
-      {(phase === "CLIMB" || phase === "ARMING" || phase === "REDEEM" || phase === "RESOLVE") && (
-        <ClimbScene onCashOut={cashOut} />
+      {(phase === "CLIMB" || phase === "ARMING" || phase === "REDEEM" || phase === "RESOLVE" || phase === "NEXT") && (
+        <ClimbScene onCashOut={cashOut} onContinue={startRound} onExit={exitGame} />
       )}
       {(phase === "SETTLE" || phase === "SETTLE_SUMMARY") && <SummaryScene onNext={nextRound} />}
       {phase === "BUILDING_SWAP" && <BuildingSwapScene onNext={() => useGame.getState().setPhase("PICK")} />}

@@ -12,6 +12,7 @@ export type Phase =
   | "CLIMB" // live tape drives the yeti until he tops out or falls
   | "REDEEM" // cash-out tx in flight
   | "RESOLVE" // brief win(fly)/lose(fall) beat before the next call
+  | "NEXT" // in-game bet menu in the sky: continue (next call) or exit
   | "SETTLE" // oracle settled: reached floor or fell
   | "SETTLE_SUMMARY" // result; one tap to PICK again
   | "BUILDING_SWAP" // every 20 floors, leap to a new skyscraper

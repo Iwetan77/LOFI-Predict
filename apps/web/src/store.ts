@@ -117,7 +117,7 @@ export const useGame = create<GameState>((set, get) => ({
 
   pressStart: () => {
     const done = localStorage.getItem(TUTORIAL_KEY) === "1";
-    set({ phase: done ? "PICK" : "TUTORIAL", playMoney: true, tutorialStep: 0 });
+    set({ phase: done ? "PICK" : "TUTORIAL", playMoney: true, realMode: false, tutorialStep: 0 });
   },
 
   configure: (cfg) => set(cfg),
@@ -179,7 +179,9 @@ export const useGame = create<GameState>((set, get) => ({
       }
       set({ tutorialStep: step });
     }
-    set({ phase: "PICK" });
+    // The follow-up call happens in-game (the sky menu), not back on the home
+    // screen — far less disruptive between floors.
+    set({ phase: "NEXT" });
   },
 
   insertCoin: () => set({ phase: "CONNECT" }),

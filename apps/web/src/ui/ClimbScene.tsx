@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useGame } from "../store";
 import { PixiClimb } from "../game/PixiClimb";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { NextMenu } from "./NextMenu";
 import { sfx } from "../game/audio";
 
 /**
@@ -10,11 +11,20 @@ import { sfx } from "../game/audio";
  * or the player grabs the ledge to bank it. The RESOLVE beat shows the outcome
  * before the in-game menu returns.
  */
-export function ClimbScene({ onCashOut }: { onCashOut: () => void }) {
+export function ClimbScene({
+  onCashOut,
+  onContinue,
+  onExit,
+}: {
+  onCashOut: () => void;
+  onContinue: () => void;
+  onExit: () => void;
+}) {
   const { phase, direction, risk, prog, liveFloors, liveCashOut, spot, entrySpot, floor, txStatus, lastResult } =
     useGame();
   const arming = phase === "ARMING";
   const resolving = phase === "RESOLVE";
+  const choosing = phase === "NEXT";
   const redeeming = phase === "REDEEM" || txStatus === "pending";
 
   const winning = prog >= 0;
@@ -46,22 +56,24 @@ export function ClimbScene({ onCashOut }: { onCashOut: () => void }) {
       />
 
       {/* header: the call + a climb-progress bar (no timer) */}
-      <div className="z-10 mb-2">
-        <div className="flex justify-between text-[10px]">
-          <span className="text-white/70">
-            {direction === "UP" ? "▲ UP" : "▼ DOWN"} · {risk.label}
-          </span>
-          <span className={failing ? "text-danger animate-blink" : winning ? "text-warm" : "text-white/60"}>
-            {arming ? "READY?" : resolving ? "—" : winning ? "CLIMBING" : "SLIPPING"}
-          </span>
+      {!choosing && (
+        <div className="z-10 mb-2">
+          <div className="flex justify-between text-[10px]">
+            <span className="text-white/70">
+              {direction === "UP" ? "▲ UP" : "▼ DOWN"} · {risk.label}
+            </span>
+            <span className={failing ? "text-danger animate-blink" : winning ? "text-warm" : "text-white/60"}>
+              {arming ? "READY?" : resolving ? "—" : winning ? "CLIMBING" : "SLIPPING"}
+            </span>
+          </div>
+          <div className="mt-1 h-2 w-full bg-white/10">
+            <div
+              className="h-full transition-all"
+              style={{ width: `${arming ? 0 : climbFrac * 100}%`, background: winning ? "#39ff8b" : "#ff4d4d" }}
+            />
+          </div>
         </div>
-        <div className="mt-1 h-2 w-full bg-white/10">
-          <div
-            className="h-full transition-all"
-            style={{ width: `${arming ? 0 : climbFrac * 100}%`, background: winning ? "#39ff8b" : "#ff4d4d" }}
-          />
-        </div>
-      </div>
+      )}
 
       {/* the tower + LOFI */}
       <div className="z-10 relative flex-1 overflow-hidden border-2 border-white/15 bg-black/30">
@@ -76,10 +88,12 @@ export function ClimbScene({ onCashOut }: { onCashOut: () => void }) {
             <span className="text-gold text-glow animate-blink text-[10px] tracking-widest">READYING…</span>
           </div>
         )}
+        {/* outcome banner — up in the sky so it never sits over the building */}
         {resolving && lastResult && (
-          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-1">
+          <div className="pointer-events-none absolute inset-x-0 top-6 z-10 flex flex-col items-center gap-1">
             <span
-              className={`text-glow text-xl ${lastResult.outcome === "LOSS" ? "text-danger" : "text-warm"}`}
+              className="text-glow rounded bg-black/45 px-2 py-0.5 text-lg"
+              style={{ color: lastResult.outcome === "LOSS" ? "#ff4d4d" : "#39ff8b" }}
             >
               {lastResult.outcome === "WIN"
                 ? "TO THE TOP!"
@@ -87,16 +101,23 @@ export function ClimbScene({ onCashOut }: { onCashOut: () => void }) {
                   ? "LEDGE GRABBED!"
                   : "LOFI FELL!"}
             </span>
-            {lastResult.outcome !== "LOSS" && <span className="text-gold text-[10px]">+{lastResult.floorsGained} 🏢</span>}
+            {lastResult.outcome !== "LOSS" && (
+              <span className="text-gold rounded bg-black/45 px-2 text-[10px]">+{lastResult.floorsGained} 🏢</span>
+            )}
           </div>
         )}
+        {/* in-game next-call menu, floating in the sky */}
+        {choosing && <NextMenu onContinue={onContinue} onExit={onExit} />}
       </div>
 
-      <div className="z-10 mt-1 text-center text-[9px] text-white/50">
-        ${spot.toFixed(0)} {spot >= entrySpot ? "▲" : "▼"} from ${entrySpot.toFixed(0)}
-      </div>
+      {!choosing && (
+        <div className="z-10 mt-1 text-center text-[9px] text-white/50">
+          ${spot.toFixed(0)} {spot >= entrySpot ? "▲" : "▼"} from ${entrySpot.toFixed(0)}
+        </div>
+      )}
 
       {/* CASH OUT — alive, reacts to PnL. Shows the real $ you'd bank now. */}
+      {!choosing && (
       <button
         onClick={onCashOut}
         disabled={arming || resolving || redeeming}
@@ -124,6 +145,7 @@ export function ClimbScene({ onCashOut }: { onCashOut: () => void }) {
           💵 ${liveCashOut.toFixed(2)}
         </span>
       </button>
+      )}
     </div>
   );
 }

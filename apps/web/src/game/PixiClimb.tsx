@@ -206,6 +206,7 @@ export function PixiClimb() {
           signaledFall = false;
           wasLosing = false;
           yetiX = W() / 2;
+          yetiY = towerBaseY; // back to the foot of the tower
           for (const s of stones) s.s.destroy();
           stones.length = 0;
         }
