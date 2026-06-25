@@ -16,43 +16,33 @@ const FRAME_MS = 220; // climb-cycle frame swap
  *  - During the "ready?" beat (ARMING) he stands idle on the ledge.
  *  - Stones home in and knock him down on impact when he's failing.
  *
- * The Application/WebGL context is a module-level singleton, created once and
- * reused for the life of the page — only the canvas's DOM parent changes as
- * rounds mount/unmount this component. Browsers cap the number of live WebGL
- * contexts per tab; recreating one per betting session eventually exhausts
- * that cap and a later context creation silently fails (canvas stays blank
- * while the rest of the UI, including audio, keeps working fine).
+ * The Application/WebGL context (and everything built on it: sky, building,
+ * yeti, ticker) is a module-level singleton, built exactly once and reused
+ * for the life of the page — only the canvas's DOM parent changes as rounds
+ * mount/unmount this component. Two reasons it's structured this way:
+ *  1. Browsers cap the number of live WebGL contexts per tab; recreating one
+ *     per betting session eventually exhausts that cap and a later context
+ *     creation silently fails (canvas stays blank while the rest of the UI,
+ *     including audio, keeps working fine).
+ *  2. React's StrictMode double-invokes effects in dev (mount → cleanup →
+ *     mount). The whole build lives inside ONE memoized promise keyed off
+ *     module scope — not a per-effect flag — so no matter how many times or
+ *     how quickly this component (re)mounts, the scene is built exactly once.
  */
 let sharedAppPromise: Promise<Application> | null = null;
 
-export function PixiClimb() {
-  const hostRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const host = hostRef.current!;
-    let mounted = true;
+function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
+  if (sharedAppPromise) return sharedAppPromise;
+  sharedAppPromise = (async () => {
+    const a = new Application();
+    await a.init({ resizeTo: initialHost, backgroundAlpha: 0, antialias: false, preserveDrawingBuffer: true });
+    initialHost.appendChild(a.canvas);
+    a.start();
 
     const stones: { s: Sprite | Graphics; vy: number; vx: number }[] = [];
     const parts: { g: Graphics; life: number; vx: number; vy: number }[] = [];
 
-    (async () => {
-      const firstInit = !sharedAppPromise;
-      if (!sharedAppPromise) {
-        sharedAppPromise = (async () => {
-          const a = new Application();
-          await a.init({ resizeTo: host, backgroundAlpha: 0, antialias: false, preserveDrawingBuffer: true });
-          return a;
-        })();
-      }
-      const a = await sharedAppPromise;
-      if (!mounted) return; // unmounted while the (one-time) init was in flight
-      a.resizeTo = host;
-      a.renderer.resize(host.clientWidth, host.clientHeight);
-      host.appendChild(a.canvas);
-      a.start();
-      if (!firstInit) return; // canvas reattached to a fresh host — scene graph already built
-
-      const W = () => a.screen.width;
+    const W = () => a.screen.width;
       const H = () => a.screen.height;
 
       const [idleT, climb1T, climb2T, fallT, flyT, skyT, stoneTexes] = await Promise.all([
@@ -422,8 +412,29 @@ export function PixiClimb() {
         shake *= 0.85;
         a.stage.x = (Math.random() - 0.5) * shake;
         a.stage.y = (Math.random() - 0.5) * shake;
-      });
-    })();
+    });
+
+    return a;
+  })();
+  return sharedAppPromise;
+}
+
+export function PixiClimb() {
+  const hostRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const host = hostRef.current!;
+    let mounted = true;
+
+    getSharedApp(host).then((a) => {
+      if (!mounted) return;
+      if (a.canvas.parentNode !== host) {
+        a.resizeTo = host;
+        a.renderer.resize(host.clientWidth, host.clientHeight);
+        host.appendChild(a.canvas);
+      }
+      a.start();
+    });
 
     return () => {
       mounted = false;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useGame } from "../store";
-import { RISK_TIERS } from "../game/round";
+import { RISK_TIERS, ROUND_MS } from "../game/round";
 import { FuelUp } from "./FuelUp";
 
 /**
@@ -80,6 +80,8 @@ export function NextMenu({ onContinue, onExit }: { onContinue: () => void; onExi
               />
             </div>
           </div>
+
+          <p className="text-center text-[8px] text-white/35">⏱ live for {Math.round(ROUND_MS / 1000)}s once you continue</p>
 
           {broke && (
             <p className="text-center text-[8px] text-danger">

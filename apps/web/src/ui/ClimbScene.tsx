@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useGame } from "../store";
 import { PixiClimb } from "../game/PixiClimb";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -6,10 +6,11 @@ import { NextMenu } from "./NextMenu";
 import { sfx } from "../game/audio";
 
 /**
- * CLIMB: the live price drives LOFI up the tower with no timer — he climbs until
- * he tops out (win → fly to the next building), gets knocked off (lose a life),
- * or the player grabs the ledge to bank it. The RESOLVE beat shows the outcome
- * before the in-game menu returns.
+ * CLIMB: the live price drives LOFI up the tower. Each call auto-banks when
+ * its clock runs out (see ROUND_MS / useEngine), so the climb until he tops
+ * out (win → fly to the next building), gets knocked off (lose a life), or
+ * the player grabs the ledge to bank it early. The RESOLVE beat shows the
+ * outcome before the in-game menu returns.
  */
 export function ClimbScene({
   onCashOut,
@@ -20,8 +21,20 @@ export function ClimbScene({
   onContinue: () => void;
   onExit: () => void;
 }) {
-  const { phase, direction, risk, prog, liveFloors, liveCashOut, spot, entrySpot, floor, txStatus, lastResult } =
-    useGame();
+  const {
+    phase,
+    direction,
+    risk,
+    prog,
+    liveFloors,
+    liveCashOut,
+    spot,
+    entrySpot,
+    floor,
+    txStatus,
+    lastResult,
+    roundEndsAt,
+  } = useGame();
   const arming = phase === "ARMING";
   const resolving = phase === "RESOLVE";
   const choosing = phase === "NEXT";
@@ -37,6 +50,18 @@ export function ClimbScene({
     const id = setInterval(() => sfx.heartbeat(), 650);
     return () => clearInterval(id);
   }, [failing, phase]);
+
+  // The clock this call is live for — ticks every quarter-second so players
+  // always know the window they're climbing for, without us ever saying
+  // "expiry"/"strike"/anything that reads as a finance term.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (phase !== "CLIMB") return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [phase]);
+  const secsLeft = Math.max(0, Math.ceil((roundEndsAt - now) / 1000));
+  const clockLabel = `${Math.floor(secsLeft / 60)}:${String(secsLeft % 60).padStart(2, "0")}`;
 
   const cashOutGlow = winning ? Math.min(1, 0.3 + prog) : 0.15;
   // altitude/momentum bar: centred at 0, fills toward the top as the call wins.
@@ -55,7 +80,7 @@ export function ClimbScene({
         }}
       />
 
-      {/* header: the call + a climb-progress bar (no timer) */}
+      {/* header: the call + how long it's live for + a climb-progress bar */}
       {!choosing && (
         <div className="z-10 mb-2">
           <div className="flex justify-between text-[10px]">
@@ -66,6 +91,15 @@ export function ClimbScene({
               {arming ? "READY?" : resolving ? "—" : winning ? "CLIMBING" : "SLIPPING"}
             </span>
           </div>
+          {!arming && !resolving && (
+            <div className="mt-0.5 flex justify-center">
+              <span
+                className={`text-[9px] tracking-widest ${secsLeft <= 10 ? "text-danger animate-blink" : "text-white/45"}`}
+              >
+                ⏱ {clockLabel} LEFT ON THIS CALL
+              </span>
+            </div>
+          )}
           <div className="mt-1 h-2 w-full bg-white/10">
             <div
               className="h-full transition-all"

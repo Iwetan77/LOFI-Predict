@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useGame } from "../store";
 import { useSigner } from "../auth/useSigner";
-import { RISK_TIERS } from "../game/round";
+import { RISK_TIERS, ROUND_MS } from "../game/round";
 import { BtcChart } from "./BtcChart";
 import { FuelUp } from "./FuelUp";
 
@@ -214,6 +214,9 @@ export function PickScene({ liveSpot, onGo }: { liveSpot: number; onGo: () => vo
         <div className="text-gold text-glow text-xs tracking-widest">START CLIMB</div>
         <p className="text-center text-[8px] text-white/40">
           stake ${stake} · climb to win up to ${Math.round(stake * (1 + risk.floorsPerWin * 0.2))}
+        </p>
+        <p className="text-center text-[8px] text-white/30">
+          ⏱ this call is live for {Math.round(ROUND_MS / 1000)}s — grab the ledge anytime to bank it early
         </p>
       </div>
     </div>

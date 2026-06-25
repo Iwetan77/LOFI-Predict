@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { STARTING_LIVES, type Phase } from "./game/phases";
 import {
   RISK_TIERS,
+  ROUND_MS,
   cashOutValue,
   floorsClimbed,
   progress,
@@ -56,6 +57,7 @@ interface GameState {
   prog: number; // signed progress, -1.2..1.2
   liveFloors: number; // floors climbed so far this round
   liveCashOut: number; // bankable now
+  roundEndsAt: number; // ms epoch — the call auto-banks when this passes
   lastResult: RoundResult | null;
   /** PixiClimb signals the moment LOFI tops the tower / falls off. */
   pendingOutcome: "TOP" | "FALL" | null;
@@ -110,6 +112,7 @@ export const useGame = create<GameState>((set, get) => ({
   prog: 0,
   liveFloors: 0,
   liveCashOut: 0,
+  roundEndsAt: 0,
   lastResult: null,
   pendingOutcome: null,
 
@@ -134,6 +137,7 @@ export const useGame = create<GameState>((set, get) => ({
       prog: 0,
       liveFloors: 0,
       liveCashOut: get().stake,
+      roundEndsAt: Date.now() + ROUND_MS,
       pendingOutcome: null,
     }),
 

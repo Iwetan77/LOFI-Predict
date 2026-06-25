@@ -77,13 +77,18 @@ export function useEngine() {
   }, []);
 
   // Watch for the top/fall moment PixiClimb signals, and resolve the round.
+  // Also auto-bank a call once its visible clock runs out — keeps every round
+  // bounded so it can never outlast the window we minted the position for.
   useEffect(() => {
     const id = setInterval(() => {
       const st = useGame.getState();
-      if (st.phase === "CLIMB" && st.pendingOutcome) {
+      if (st.phase !== "CLIMB") return;
+      if (st.pendingOutcome) {
         const o = st.pendingOutcome;
         useGame.getState().signalOutcome(null);
         void resolveRound(o);
+      } else if (st.roundEndsAt && Date.now() >= st.roundEndsAt) {
+        void resolveRound("CASHOUT");
       }
     }, 100);
     return () => clearInterval(id);

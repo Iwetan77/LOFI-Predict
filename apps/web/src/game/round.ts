@@ -7,6 +7,9 @@
 
 export type Direction = "UP" | "DOWN";
 
+/** How long a single UP/DOWN call stays live before it auto-banks. */
+export const ROUND_MS = 60_000;
+
 export interface RiskTier {
   id: string;
   label: string; // player-facing, no finance words
