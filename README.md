@@ -27,7 +27,8 @@ infrastructure.
 - **Choose how bold LOFI jumps.** A bigger leap clears more floors per
   building, but needs a stronger move to land it.
 - **Call it — up or down — and stake your credits.** The call goes live for a
-  fixed clock (60s), shown on screen the whole time.
+  fixed clock (20s), shown on screen the whole time. You can't switch
+  direction mid-call — the next pick only comes once this one resolves.
 - **Watch the climb.** The live price drives LOFI in real time. Moving your
   way, he climbs and the windows glow warm. Moving against you, the windows
   flash red and loose bricks rain down. Topping a tower is a visual reward, not
@@ -54,11 +55,11 @@ on Sui testnet.
 
 A "call" is one binary position on [DeepBook
 Predict](https://github.com/MystenLabs/deepbookv3) testnet — minted once, held
-for the visible 60-second clock, redeemed once.
+for the visible 20-second clock, redeemed once.
 
 1. **Pick a market.** The app reads DeepBook Predict's live oracle list and
    joins whichever BTC oracle expires soonest, as long as it still has at
-   least two minutes left — comfortably longer than a single call's 60s clock,
+   least two minutes left — six times longer than a single call's 20s clock,
    so a call can never outlast the market it was minted against.
 2. **Mint.** UP/DOWN + the live spot (rounded to the oracle's tick size) becomes
    a real `predict::mint<DUSDC>` call — your stake leaves your `PredictManager`
