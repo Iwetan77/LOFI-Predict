@@ -15,30 +15,42 @@ const FRAME_MS = 220; // climb-cycle frame swap
  *    tower triggers a visible rocket-booster LEAP to the next of five buildings.
  *  - During the "ready?" beat (ARMING) he stands idle on the ledge.
  *  - Stones home in and knock him down on impact when he's failing.
+ *
+ * The Application/WebGL context is a module-level singleton, created once and
+ * reused for the life of the page — only the canvas's DOM parent changes as
+ * rounds mount/unmount this component. Browsers cap the number of live WebGL
+ * contexts per tab; recreating one per betting session eventually exhausts
+ * that cap and a later context creation silently fails (canvas stays blank
+ * while the rest of the UI, including audio, keeps working fine).
  */
+let sharedAppPromise: Promise<Application> | null = null;
+
 export function PixiClimb() {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const host = hostRef.current!;
-    let app: Application | null = null;
-    let inited = false;
-    let destroyed = false;
+    let mounted = true;
 
     const stones: { s: Sprite | Graphics; vy: number; vx: number }[] = [];
     const parts: { g: Graphics; life: number; vx: number; vy: number }[] = [];
 
     (async () => {
-      const a = new Application();
-      await a.init({ resizeTo: host, backgroundAlpha: 0, antialias: false, preserveDrawingBuffer: true });
-      if (destroyed) {
-        a.destroy(true);
-        return;
+      const firstInit = !sharedAppPromise;
+      if (!sharedAppPromise) {
+        sharedAppPromise = (async () => {
+          const a = new Application();
+          await a.init({ resizeTo: host, backgroundAlpha: 0, antialias: false, preserveDrawingBuffer: true });
+          return a;
+        })();
       }
-      app = a;
-      inited = true;
+      const a = await sharedAppPromise;
+      if (!mounted) return; // unmounted while the (one-time) init was in flight
+      a.resizeTo = host;
+      a.renderer.resize(host.clientWidth, host.clientHeight);
       host.appendChild(a.canvas);
       a.start();
+      if (!firstInit) return; // canvas reattached to a fresh host — scene graph already built
 
       const W = () => a.screen.width;
       const H = () => a.screen.height;
@@ -81,6 +93,38 @@ export function PixiClimb() {
       let landmark: Sprite | null = null;
       let towerTopY = H() * 0.14;
       let towerBaseY = H() * 0.9; // foot of the tower (LOFI's feet rest here)
+      const baseFracCache = new Map<number, number>();
+
+      // Building art often has transparent padding below the visible structure
+      // (a shadow/ground margin baked into the PNG). Anchoring to the raw image
+      // bottom puts LOFI mid-floor instead of on the ground. Scan the decoded
+      // pixels once per asset to find where the artwork actually ends.
+      const findVisibleBottomFrac = (tex: Texture): number => {
+        try {
+          const res = (tex.source as unknown as { resource?: CanvasImageSource & { width?: number; height?: number } })
+            .resource;
+          if (!res) return 1;
+          const w = res.width ?? tex.width;
+          const h = res.height ?? tex.height;
+          if (!w || !h) return 1;
+          const c = document.createElement("canvas");
+          c.width = w;
+          c.height = h;
+          const ctx = c.getContext("2d", { willReadFrequently: true });
+          if (!ctx) return 1;
+          ctx.drawImage(res, 0, 0, w, h);
+          const step = Math.max(1, Math.floor(w / 40));
+          for (let y = h - 1; y >= 0; y--) {
+            const row = ctx.getImageData(0, y, w, 1).data;
+            for (let x = 0; x < w; x += step) {
+              if (row[x * 4 + 3] > 16) return y / h;
+            }
+          }
+          return 1;
+        } catch {
+          return 1; // CORS or decode failure — fall back to "no padding"
+        }
+      };
 
       const ensureBuilding = async (seed: number) => {
         if (seed === curSeed) return;
@@ -100,8 +144,10 @@ export function PixiClimb() {
           landmark.x = W() / 2;
           landmark.y = H();
           buildingLayer.addChild(landmark);
+          if (!baseFracCache.has(seed)) baseFracCache.set(seed, findVisibleBottomFrac(tex));
+          const frac = baseFracCache.get(seed) ?? 1;
           towerTopY = H() - landmark.height * 0.9;
-          towerBaseY = H() * 0.9;
+          towerBaseY = H() - landmark.height * (1 - frac); // actual ground line, not the image edge
         }
       };
 
@@ -206,6 +252,12 @@ export function PixiClimb() {
           wasLosing = false;
           yetiX = W() / 2;
           yetiY = towerBaseY; // back to the foot of the tower
+          // The scene (and this closure) now lives for the whole page session,
+          // so re-sync which tower art is shown from the store's tier on every
+          // fresh session — a brand-new bet resets it to 1, a win streak carries
+          // it forward, same as before this became a persistent singleton.
+          buildingSeed = Math.max(1, st.buildingTier);
+          void ensureBuilding(buildingSeed);
           for (const s of stones) s.s.destroy();
           stones.length = 0;
         }
@@ -374,8 +426,11 @@ export function PixiClimb() {
     })();
 
     return () => {
-      destroyed = true;
-      if (inited && app) app.destroy(true);
+      mounted = false;
+      sharedAppPromise?.then((a) => {
+        a.stop();
+        if (a.canvas.parentNode === host) host.removeChild(a.canvas);
+      });
     };
   }, []);
 
