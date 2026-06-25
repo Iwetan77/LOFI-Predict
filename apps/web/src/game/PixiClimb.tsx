@@ -12,7 +12,10 @@ const FRAME_MS = 220; // climb-cycle frame swap
  *  - LOFI alternates two climbing frames (opposite limbs) for a hand-over-hand
  *    cycle, and weaves left/right up the face, dodging stones when he's winning.
  *  - Climb height is integrated from price (earned, not snapped). Topping a
- *    tower triggers a visible rocket-booster LEAP to the next of five buildings.
+ *    tower triggers a visible rocket-booster LEAP to the next of five
+ *    buildings — a floor-combo milestone within the same ongoing call, not a
+ *    settlement; the call keeps running until it falls, cashes out, or its
+ *    clock runs out (see useEngine/store.bankBuilding).
  *  - During the "ready?" beat (ARMING) he stands idle on the ledge.
  *  - Stones home in and knock him down on impact when he's failing.
  *
@@ -280,7 +283,10 @@ function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
           yeti.x = yetiX;
           yeti.y = yetiY;
           yeti.rotation = 0;
-          if (leapT <= 0) leaping = false;
+          if (leapT <= 0) {
+            leaping = false;
+            signaledTop = false; // clear to top out again — one call can clear several buildings
+          }
         } else if (falling) {
           // knocked off — tumble down and out.
           setPose(poseFall);
@@ -290,7 +296,9 @@ function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
           yeti.y = yetiY;
           yeti.rotation += 0.06 * dt;
         } else if (armed) {
-          // integrate climb height from price; top out → WIN (fly).
+          // integrate climb height from price; topping out is a visual/floor
+          // combo milestone now, not a settlement — the call (and its clock)
+          // keeps running, so a hot streak can clear several buildings in a row.
           climbH += prog * 0.22 * dtSec * (prog < 0 ? 1.3 : 1);
           if (climbH < 0) climbH = 0;
           if (climbH >= 1 && !signaledTop) {
@@ -300,7 +308,7 @@ function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
             leapSwapped = false;
             sfx.cheer();
             buzz([15, 30, 15]);
-            useGame.getState().signalOutcome("TOP");
+            useGame.getState().bankBuilding();
           }
           // grip: bleeds when slipping hard, recovers when climbing. 0 → fall.
           if (prog < -0.5) grip -= 0.22 * dtSec;

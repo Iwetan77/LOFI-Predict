@@ -14,10 +14,12 @@ const HIGH_SCORE_KEY = "lofi.highscore";
 const TUTORIAL_KEY = "lofi.tutorialDone";
 
 export interface RoundResult {
-  outcome: "WIN" | "LOSS" | "CASHOUT";
+  outcome: "LOSS" | "CASHOUT";
   floorsGained: number;
   credited: number;
   staked: number;
+  /** True when the call's own clock ran out (vs. the player grabbing the ledge). */
+  auto?: boolean;
 }
 
 /** The on-chain market key the active real climb minted against. */
@@ -55,12 +57,13 @@ interface GameState {
   entrySpot: number;
   spot: number;
   prog: number; // signed progress, -1.2..1.2
-  liveFloors: number; // floors climbed so far this round
+  liveFloors: number; // floors climbed so far this round (banked buildings + the current one's progress)
   liveCashOut: number; // bankable now
   roundEndsAt: number; // ms epoch — the call auto-banks when this passes
+  toppedCount: number; // buildings already cleared THIS call — the bet keeps running until fall/cash-out/timeout
   lastResult: RoundResult | null;
-  /** PixiClimb signals the moment LOFI tops the tower / falls off. */
-  pendingOutcome: "TOP" | "FALL" | null;
+  /** PixiClimb signals the moment LOFI falls off — a building TOP no longer ends the round. */
+  pendingOutcome: "FALL" | null;
 
   // --- actions ---
   setPhase: (p: Phase) => void;
@@ -69,7 +72,9 @@ interface GameState {
   armRound: (entrySpot: number) => void;
   startRound: (entrySpot: number) => void;
   onTick: (spot: number) => void;
-  signalOutcome: (o: "TOP" | "FALL" | null) => void;
+  signalOutcome: (o: "FALL" | null) => void;
+  /** A building was cleared — a visual/floor-combo milestone. The bet itself keeps running. */
+  bankBuilding: () => void;
   nextRound: () => void;
   insertCoin: () => void; // tutorial -> real (CONNECT)
   restart: () => void;
@@ -113,6 +118,7 @@ export const useGame = create<GameState>((set, get) => ({
   liveFloors: 0,
   liveCashOut: 0,
   roundEndsAt: 0,
+  toppedCount: 0,
   lastResult: null,
   pendingOutcome: null,
 
@@ -127,7 +133,16 @@ export const useGame = create<GameState>((set, get) => ({
 
   // A brief "ready?" beat before the climb (covers the real-money mint).
   armRound: (entrySpot) =>
-    set({ phase: "ARMING", entrySpot, spot: entrySpot, prog: 0, liveFloors: 0, liveCashOut: get().stake, pendingOutcome: null }),
+    set({
+      phase: "ARMING",
+      entrySpot,
+      spot: entrySpot,
+      prog: 0,
+      liveFloors: 0,
+      liveCashOut: get().stake,
+      toppedCount: 0,
+      pendingOutcome: null,
+    }),
 
   startRound: (entrySpot) =>
     set({
@@ -138,36 +153,40 @@ export const useGame = create<GameState>((set, get) => ({
       liveFloors: 0,
       liveCashOut: get().stake,
       roundEndsAt: Date.now() + ROUND_MS,
+      toppedCount: 0,
       pendingOutcome: null,
     }),
 
   onTick: (spot) => {
-    const { entrySpot, direction, risk, stake, phase } = get();
+    const { entrySpot, direction, risk, stake, phase, toppedCount } = get();
     if (phase !== "CLIMB" || !entrySpot) return;
     const p = progress(entrySpot, spot, direction, risk.sensitivity);
+    const toppedBonus = toppedCount * risk.floorsPerWin * 0.2;
     set({
       spot,
       prog: p,
-      liveFloors: floorsClimbed(p, risk.floorsPerWin),
-      liveCashOut: cashOutValue(stake, p),
+      liveFloors: toppedCount * risk.floorsPerWin + floorsClimbed(p, risk.floorsPerWin),
+      liveCashOut: cashOutValue(stake, p, toppedBonus),
     });
   },
 
   signalOutcome: (pendingOutcome) => set({ pendingOutcome }),
 
+  // A building was cleared mid-call — bump the combo + which tower art shows.
+  // The bet itself (and its clock) keeps running until fall/cash-out/timeout.
+  bankBuilding: () => set((s) => ({ toppedCount: s.toppedCount + 1, buildingTier: s.buildingTier + 1 })),
+
   // Fold a result into floors/lives/credits; the engine routes afterward.
-  // A win tops a tower, so LOFI moves to the next building.
   applyResult: (r: RoundResult, chainCredits?: number) => {
     const s = get();
     const lives = r.outcome === "LOSS" ? s.lives - 1 : s.lives;
     const floor = s.floor + r.floorsGained;
-    const buildingTier = r.outcome === "WIN" ? s.buildingTier + 1 : s.buildingTier;
     // Real mode: credits mirror the on-chain DUSDC balance (keep cents). Play
     // mode: net play-money arithmetic.
     const credits = chainCredits != null ? Math.max(0, chainCredits) : Math.max(0, s.credits + r.credited - r.staked);
     const highScore = Math.max(s.highScore, floor);
     localStorage.setItem(HIGH_SCORE_KEY, String(highScore));
-    set({ lastResult: r, lives, floor, credits, highScore, buildingTier });
+    set({ lastResult: r, lives, floor, credits, highScore });
     return lives;
   },
 

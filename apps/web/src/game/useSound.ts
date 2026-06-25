@@ -37,10 +37,7 @@ export function useSound() {
       // outcome transitions
       if (s.phase !== prevPhase) {
         if (s.phase === "SETTLE_SUMMARY" && s.lastResult) {
-          if (s.lastResult.outcome === "WIN") {
-            sfx.cheer();
-            buzz([20, 40, 20]);
-          } else if (s.lastResult.outcome === "CASHOUT") {
+          if (s.lastResult.outcome === "CASHOUT") {
             sfx.coin();
             buzz(30);
           } else {

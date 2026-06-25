@@ -36,10 +36,15 @@ export function floorsClimbed(p: number, floorsPerWin: number): number {
   return Math.max(0, Math.min(floorsPerWin, Math.round(p * floorsPerWin)));
 }
 
-/** Bankable cash-out value right now given the stake and live progress. */
-export function cashOutValue(stake: number, p: number): number {
-  // winning pays up toward ~2x; losing decays toward a small floor.
-  const mult = p >= 0 ? 1 + p : Math.max(0.05, 1 + p);
+/**
+ * Bankable cash-out value right now: a flat bonus banked from every building
+ * already cleared this call (`toppedBonus`), plus the live swing of the
+ * building currently underway. One timer window can clear several buildings
+ * before it ends, so the bonus compounds — but a fall forfeits the whole
+ * call, banked buildings included.
+ */
+export function cashOutValue(stake: number, p: number, toppedBonus = 0): number {
+  const mult = Math.max(0.05, 1 + toppedBonus + p);
   return Math.round(stake * mult);
 }
 

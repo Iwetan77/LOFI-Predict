@@ -19,11 +19,14 @@ function eventAmount(events: { type: string; parsedJson: unknown }[], endsWith: 
 }
 
 /**
- * Owns the round lifecycle for both modes. Each round is ONE building: the climb
- * runs with no timer until LOFI tops the tower (win → fly to the next one), is
- * knocked off (lose a life), or the player grabs the ledge (cash out). PixiClimb
- * reports the top/fall moment via the store; we resolve it here (redeem on-chain
- * in real mode) and route to the in-game menu.
+ * Owns the round lifecycle for both modes. Each round is ONE call, live for its
+ * whole clock (ROUND_MS): LOFI can climb through several buildings on a streak
+ * (each one a visual/floor-combo milestone, see store.bankBuilding), and the
+ * call only resolves when he's knocked off (lose a life), the player grabs the
+ * ledge early (cash out, ends the run), or the clock simply runs out (banks
+ * automatically, then offers the in-game continue/exit menu — same as a win
+ * used to). PixiClimb reports the fall moment via the store; we resolve it here
+ * (redeem on-chain in real mode either way) and route accordingly.
  */
 export function useEngine() {
   const { send, getMarket } = useSigner();
@@ -88,7 +91,7 @@ export function useEngine() {
         useGame.getState().signalOutcome(null);
         void resolveRound(o);
       } else if (st.roundEndsAt && Date.now() >= st.roundEndsAt) {
-        void resolveRound("CASHOUT");
+        void resolveRound("TIMEOUT");
       }
     }, 100);
     return () => clearInterval(id);
@@ -139,14 +142,15 @@ export function useEngine() {
     }
   };
 
-  // ---- resolve a round (top / fall / cash-out) -----------------------------
+  // ---- resolve a round (fall / cash-out / clock ran out) -------------------
 
-  const resolveRound = async (reason: "TOP" | "FALL" | "CASHOUT") => {
+  const resolveRound = async (reason: "FALL" | "CASHOUT" | "TIMEOUT") => {
     const g = useGame.getState();
     if (g.phase !== "CLIMB") return; // already resolving
-    const outcome: "WIN" | "LOSS" | "CASHOUT" =
-      reason === "TOP" ? "WIN" : reason === "FALL" ? "LOSS" : "CASHOUT";
-    const floorsGained = outcome === "LOSS" ? 0 : reason === "CASHOUT" ? g.liveFloors : g.risk.floorsPerWin;
+    const outcome: "LOSS" | "CASHOUT" = reason === "FALL" ? "LOSS" : "CASHOUT";
+    // A fall forfeits the whole call, banked buildings included. Otherwise you
+    // keep everything earned across however many buildings this one call cleared.
+    const floorsGained = outcome === "LOSS" ? 0 : g.liveFloors;
 
     g.setPhase("RESOLVE");
     liveRef.current?.stop();
@@ -169,15 +173,14 @@ export function useEngine() {
 
     // Play-money economy uses the credited/staked arithmetic; real uses chain.
     const stake = g.stake;
-    const credited =
-      outcome === "WIN" ? Math.round(stake * (1 + g.risk.floorsPerWin * 0.2)) : outcome === "CASHOUT" ? g.liveCashOut : 0;
+    const credited = outcome === "CASHOUT" ? g.liveCashOut : 0;
     const result = g.realMode
-      ? { outcome, floorsGained, credited: 0, staked: 0 }
-      : { outcome, floorsGained, credited, staked: stake };
+      ? { outcome, floorsGained, credited: 0, staked: 0, auto: reason === "TIMEOUT" }
+      : { outcome, floorsGained, credited, staked: stake, auto: reason === "TIMEOUT" };
     const lives = useGame.getState().applyResult(result, chainCredits);
 
-    // Grabbing the ledge ENDS the run — bank everything back to the wallet, then
-    // show the run summary. No continuing after a cash-out.
+    // Grabbing the ledge early ENDS the run — bank everything back to the
+    // wallet, then show the run summary. No continuing after a manual cash-out.
     if (reason === "CASHOUT") {
       const c = useGame.getState();
       if (c.realMode && c.managerId && c.credits > 0) {
@@ -192,8 +195,9 @@ export function useEngine() {
       return;
     }
 
-    // One building = one bet. A FALL ends the run outright — you're only asked to
-    // continue after a clean win (topping the tower). Wins → in-game sky menu.
+    // A FALL ends the run outright. A clean TIMEOUT (the clock ran out without
+    // falling) offers the in-game continue/exit menu — the only other moment
+    // you're asked a new question.
     window.setTimeout(() => {
       if (reason === "FALL" || lives <= 0) useGame.getState().setPhase("GAME_OVER");
       else useGame.getState().nextRound();

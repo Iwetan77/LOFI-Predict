@@ -129,11 +129,11 @@ export function ClimbScene({
               className="text-glow rounded bg-black/45 px-2 py-0.5 text-lg"
               style={{ color: lastResult.outcome === "LOSS" ? "#ff4d4d" : "#39ff8b" }}
             >
-              {lastResult.outcome === "WIN"
-                ? "TO THE TOP!"
-                : lastResult.outcome === "CASHOUT"
-                  ? "LEDGE GRABBED!"
-                  : "LOFI FELL!"}
+              {lastResult.outcome === "LOSS"
+                ? "LOFI FELL!"
+                : lastResult.auto
+                  ? "TIME'S UP — BANKED!"
+                  : "LEDGE GRABBED!"}
             </span>
             {lastResult.outcome !== "LOSS" && (
               <span className="text-gold rounded bg-black/45 px-2 text-[10px]">+{lastResult.floorsGained} 🏢</span>

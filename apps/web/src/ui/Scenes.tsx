@@ -35,7 +35,7 @@ export function SummaryScene({ onNext }: { onNext: () => void }) {
     <div className="relative flex flex-1 flex-col items-center justify-center gap-5 px-8 text-center">
       {win && <Confetti />}
       <h2 className={`text-glow text-xl ${win ? "text-warm" : "text-danger"}`}>
-        {outcome === "WIN" ? "FLOOR REACHED!" : outcome === "CASHOUT" ? "LEDGE GRABBED!" : "LOFI FELL!"}
+        {outcome === "CASHOUT" ? "LEDGE GRABBED!" : "LOFI FELL!"}
       </h2>
       <img
         src={win ? "/art/lofi_cheer.png" : "/art/lofi_fall.png"}
