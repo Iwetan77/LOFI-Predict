@@ -39,6 +39,7 @@ export function useEngine() {
   const simRef = useRef<SimPriceSource>();
   const liveRef = useRef<LivePriceSource>();
   const offRef = useRef<() => void>();
+  const armTokenRef = useRef(0);
   const [liveSpot, setLiveSpot] = useState(62000);
 
   if (!simRef.current) simRef.current = new SimPriceSource(62000);
@@ -112,10 +113,16 @@ export function useEngine() {
       g.setPhase("FUND");
       return;
     }
+    // Token guards the whole arm→mint→climb sequence. The market fetch and the
+    // wallet signature are slow and out of our control; if the player cancels
+    // (or starts another round) while one is in flight, this lets us drop the
+    // stale result instead of yanking them back into a climb after the fact.
+    const myToken = ++armTokenRef.current;
     g.armRound(liveSpot); // "get ready" beat while the mint is in flight
     g.setTx("pending");
     try {
       const market = await getMarketRef.current();
+      if (armTokenRef.current !== myToken) return;
       const mref: MarketRef = {
         oracleId: market.oracleId,
         expiry: market.expiry,
@@ -123,6 +130,7 @@ export function useEngine() {
         isUp: g.direction === "UP",
       };
       const res = await sendRef.current({ action: "mint", managerId: g.managerId, market: mref, quantity: qtyOf(g.stake) });
+      if (armTokenRef.current !== myToken) return; // cancelled while signing — discard
       const cost = eventAmount(res.events, "PositionMinted", ["cost"]);
 
       liveRef.current?.stop();
@@ -136,10 +144,20 @@ export function useEngine() {
       st.setTx("idle", null, res.digest);
       st.startRound(market.spot);
     } catch (e) {
+      if (armTokenRef.current !== myToken) return;
       const st = useGame.getState();
       st.setTx("error", (e as Error).message);
       st.setPhase("PICK");
     }
+  };
+
+  // Bail out of a slow/stuck "readying" beat (e.g. the wallet never prompted).
+  // Invalidates the in-flight arm so a late result can't drag the player back.
+  const cancelArm = () => {
+    armTokenRef.current++;
+    const st = useGame.getState();
+    st.setTx("idle");
+    st.setPhase("PICK");
   };
 
   // ---- resolve a round (fall / cash-out / clock ran out) -------------------
@@ -231,5 +249,5 @@ export function useEngine() {
     useGame.getState().setPhase("BOOT");
   };
 
-  return { liveSpot, startRound, cashOut, exitGame };
+  return { liveSpot, startRound, cashOut, exitGame, cancelArm };
 }

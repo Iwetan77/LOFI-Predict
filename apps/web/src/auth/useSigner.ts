@@ -71,7 +71,12 @@ export function useSigner() {
   const walletSend = useCallback(
     async (action: GameAction): Promise<TxResult> => {
       const tx = await buildTx(client, walletAddress!, action);
-      const { digest } = await signAndExecute({ transaction: tx });
+      // Pin the signature to testnet. Without this dapp-kit signs on whatever
+      // network the wallet is currently set to — if that's mainnet/devnet, the
+      // tx references testnet-only objects that don't exist there, and the
+      // wallet either hangs on pre-flight or signs a doomed tx. Pinning makes
+      // a mismatched wallet fail loudly (or prompt to switch) instead.
+      const { digest } = await signAndExecute({ transaction: tx, chain: "sui:testnet" });
       const full = await client.waitForTransaction({
         digest,
         options: { showEffects: true, showEvents: true },
@@ -107,9 +112,17 @@ export function useSigner() {
   }, [walletAddress, disconnect, zk]);
 
   // The current BTC climb market — read straight from the public Predict server
-  // + fullnode (both CORS-open), so it needs no backend of ours.
+  // + fullnode (both CORS-open), so it needs no backend of ours. The oracle
+  // list is large and the testnet endpoint is often slow (~2-3s), so the fetch
+  // is bounded by an abort timeout — a stalled network surfaces an error rather
+  // than trapping the player on the "readying" screen forever.
   const getMarket = useCallback(async (): Promise<ClimbMarket> => {
-    const o = pickClimbOracle(await fetchOracles(), { asset: "BTC", minMsLeft: 120_000 });
+    const timed = (ms: number): typeof fetch => (input, init) => {
+      const ctrl = new AbortController();
+      const id = setTimeout(() => ctrl.abort(), ms);
+      return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(id));
+    };
+    const o = pickClimbOracle(await fetchOracles(undefined, timed(12_000)), { asset: "BTC", minMsLeft: 120_000 });
     if (!o) throw new Error("no active climb right now");
     const tick = await latestPrice(client, o.oracle_id);
     if (!tick) throw new Error("no live price yet");

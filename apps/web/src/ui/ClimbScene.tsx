@@ -16,10 +16,12 @@ export function ClimbScene({
   onCashOut,
   onContinue,
   onExit,
+  onCancelArm,
 }: {
   onCashOut: () => void;
   onContinue: () => void;
   onExit: () => void;
+  onCancelArm: () => void;
 }) {
   const {
     phase,
@@ -32,6 +34,8 @@ export function ClimbScene({
     entrySpot,
     floor,
     txStatus,
+    txError,
+    realMode,
     lastResult,
     roundEndsAt,
   } = useGame();
@@ -118,8 +122,29 @@ export function ClimbScene({
           FLOOR {floor + liveFloors}
         </div>
         {arming && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center">
-            <span className="text-gold text-glow animate-blink text-[10px] tracking-widest">READYING…</span>
+          <div className="absolute inset-x-0 bottom-2 z-10 flex flex-col items-center gap-1 px-4">
+            <span className="text-gold text-glow animate-blink text-[10px] tracking-widest">
+              {realMode ? "CONFIRM IN YOUR WALLET…" : "READYING…"}
+            </span>
+            {realMode && (
+              <span className="text-center text-[8px] leading-snug text-white/45">
+                opening your climb on-chain — approve the popup
+              </span>
+            )}
+            {/* Escape hatch: the wallet may not have prompted, or the network
+                stalled. Don't trap the player on this screen. */}
+            <button
+              onClick={onCancelArm}
+              className="pointer-events-auto mt-0.5 rounded border border-white/20 px-2 py-0.5 text-[8px] text-white/60 hover:text-white"
+            >
+              ✕ cancel
+            </button>
+          </div>
+        )}
+        {/* a failed mint/redeem bounces back with a reason instead of a silent hang */}
+        {txStatus === "error" && txError && (phase === "CLIMB" || phase === "ARMING") && (
+          <div className="pointer-events-none absolute inset-x-0 top-6 z-10 flex justify-center px-4">
+            <span className="rounded bg-danger/80 px-2 py-0.5 text-center text-[9px] text-white">{txError}</span>
           </div>
         )}
         {/* outcome banner — up in the sky so it never sits over the building */}

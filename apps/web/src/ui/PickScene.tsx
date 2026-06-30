@@ -11,7 +11,7 @@ import { FuelUp } from "./FuelUp";
  * No finance words.
  */
 export function PickScene({ liveSpot, onGo }: { liveSpot: number; onGo: () => void }) {
-  const { direction, risk, stake, credits, playMoney, realMode, managerId, setPhase } = useGame();
+  const { direction, risk, stake, credits, playMoney, realMode, managerId, txStatus, txError, setPhase } = useGame();
   const configure = useGame((s) => s.configure);
   const { send } = useSigner();
   const [cashingOut, setCashingOut] = useState(false);
@@ -72,6 +72,13 @@ export function PickScene({ liveSpot, onGo }: { liveSpot: number; onGo: () => vo
           </button>
         )}
       </div>
+
+      {/* why the last attempt bounced back here (e.g. wallet on wrong network) */}
+      {txStatus === "error" && txError && (
+        <div className="rounded border border-danger/50 bg-danger/15 px-3 py-2 text-center text-[9px] leading-snug text-danger">
+          couldn&apos;t start that climb: {txError}
+        </div>
+      )}
 
       {/* chart console */}
       <div className="border-2 border-neon/30 bg-black/50 p-3" style={{ boxShadow: "inset 0 0 18px rgba(61,245,255,0.08)" }}>
