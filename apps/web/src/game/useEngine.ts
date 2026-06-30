@@ -9,15 +9,6 @@ import { type MarketRef } from "../auth/useZkLogin";
 const QTY_PER_STAKE = 1_000_000n;
 const qtyOf = (stake: number) => (BigInt(Math.max(1, Math.round(stake))) * QTY_PER_STAKE).toString();
 
-/** Pull a 6-dec DUSDC amount field out of the first matching on-chain event. */
-function eventAmount(events: { type: string; parsedJson: unknown }[], endsWith: string, fields: string[]): number {
-  const e = events.find((ev) => ev.type.endsWith(endsWith));
-  if (!e) return 0;
-  const j = e.parsedJson as Record<string, string>;
-  for (const f of fields) if (j[f] != null) return Number(j[f]) / 1e6;
-  return 0;
-}
-
 /**
  * Owns the round lifecycle for both modes. Each round is ONE call, live for its
  * whole clock (ROUND_MS): LOFI can climb through several buildings on a streak
@@ -29,12 +20,14 @@ function eventAmount(events: { type: string; parsedJson: unknown }[], endsWith: 
  * (redeem on-chain in real mode either way) and route accordingly.
  */
 export function useEngine() {
-  const { send, getMarket } = useSigner();
+  const { send, getMarket, readBalance } = useSigner();
   const client = useSuiClient();
   const sendRef = useRef(send);
   const getMarketRef = useRef(getMarket);
+  const readBalanceRef = useRef(readBalance);
   sendRef.current = send;
   getMarketRef.current = getMarket;
+  readBalanceRef.current = readBalance;
 
   const simRef = useRef<SimPriceSource>();
   const liveRef = useRef<LivePriceSource>();
@@ -131,7 +124,6 @@ export function useEngine() {
       };
       const res = await sendRef.current({ action: "mint", managerId: g.managerId, market: mref, quantity: qtyOf(g.stake) });
       if (armTokenRef.current !== myToken) return; // cancelled while signing — discard
-      const cost = eventAmount(res.events, "PositionMinted", ["cost"]);
 
       liveRef.current?.stop();
       liveRef.current = new LivePriceSource(market.oracleId, client, market.spot);
@@ -140,7 +132,7 @@ export function useEngine() {
 
       const st = useGame.getState();
       st.setMarket(mref);
-      st.syncBalance(st.credits - cost);
+      st.syncBalance(await readBalanceRef.current(g.managerId)); // true locker balance, not a local subtraction
       st.setTx("idle", null, res.digest);
       st.startRound(market.spot);
     } catch (e) {
@@ -188,8 +180,7 @@ export function useEngine() {
         g.setTx("pending");
         try {
           const res = await sendRef.current({ action: "redeem", managerId: g.managerId, market: g.market, quantity: qtyOf(g.stake) });
-          const payout = eventAmount(res.events, "PositionRedeemed", ["payout", "amount"]);
-          chainCredits = useGame.getState().credits + payout;
+          chainCredits = await readBalanceRef.current(g.managerId); // true post-redeem locker balance
           useGame.getState().setTx("idle", null, res.digest);
         } catch (e) {
           useGame.getState().setTx("error", (e as Error).message);

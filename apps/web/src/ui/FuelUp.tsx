@@ -9,9 +9,8 @@ import { useSigner } from "../auth/useSigner";
  */
 export function FuelUp({ onClose }: { onClose: () => void }) {
   const managerId = useGame((s) => s.managerId);
-  const credits = useGame((s) => s.credits);
   const syncBalance = useGame((s) => s.syncBalance);
-  const { getWallet, send } = useSigner();
+  const { getWallet, send, readBalance } = useSigner();
 
   const [walletDusdc, setWalletDusdc] = useState<number | null>(null);
   const [amount, setAmount] = useState(10);
@@ -42,7 +41,7 @@ export function FuelUp({ onClose }: { onClose: () => void }) {
     setErr(null);
     try {
       await send({ action: "deposit", managerId, amount: String(Math.floor(amount * 1e6)) });
-      syncBalance(credits + amount);
+      syncBalance(await readBalance(managerId)); // reflect the true locker balance after the deposit
       onClose();
     } catch (e) {
       setErr((e as Error).message);

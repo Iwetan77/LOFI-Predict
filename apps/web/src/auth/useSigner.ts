@@ -111,6 +111,18 @@ export function useSigner() {
     else await zk.signOut();
   }, [walletAddress, disconnect, zk]);
 
+  // The live on-chain locker balance (DUSDC), read gas-free via devInspect. The
+  // game calls this after every deposit/mint/redeem so the displayed balance is
+  // always the chain truth, never a drifting local tally. Works for both paths
+  // (it's a read — no signing).
+  const readBalance = useCallback(
+    async (managerId: string): Promise<number> => {
+      const raw = await readManagerBalance(client, managerId).catch(() => 0n);
+      return Number(raw) / 1e6;
+    },
+    [client],
+  );
+
   // The current BTC climb market — read straight from the public Predict server
   // + fullnode (both CORS-open), so it needs no backend of ours. The oracle
   // list is large and the testnet endpoint is often slow (~2-3s), so the fetch
@@ -146,6 +158,7 @@ export function useSigner() {
     name: zk.user?.name ?? null,
     send: mode === "wallet" ? walletSend : zk.send,
     getWallet: mode === "wallet" ? walletGetWallet : zk.getWallet,
+    readBalance, // live on-chain locker balance, both paths
     getMarket, // client-side: Predict server + fullnode, no backend needed
     googleSignIn: zk.signIn,
     signOut,
