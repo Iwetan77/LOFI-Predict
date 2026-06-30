@@ -177,6 +177,13 @@ function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
       if (!poseIdle) {
         yeti.width = yeti.height = 44;
         yeti.tint = 0x39ff8b;
+      } else {
+        // Normalise the starting size immediately. setPose only resizes on a
+        // texture CHANGE, and the idle pose equals the sprite's initial texture
+        // — so without this the very first frames (the ARMING/sign-wait beat)
+        // render LOFI at his full native resolution, filling the screen.
+        yeti.width = yetiW;
+        yeti.height = (poseIdle.height / poseIdle.width) * yetiW;
       }
       a.stage.addChild(yeti);
 
