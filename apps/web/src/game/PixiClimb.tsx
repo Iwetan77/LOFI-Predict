@@ -122,8 +122,20 @@ function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
       const ensureBuilding = async (seed: number) => {
         if (seed === curSeed) return;
         curSeed = seed;
-        if (!buildingCache.has(seed)) buildingCache.set(seed, await tryLoad(ART.building(seed)));
-        const tex = buildingCache.get(seed) ?? null;
+        // Load (once), but NEVER cache a failure — a transient first-paint load
+        // miss used to get cached as null and, because curSeed was already set,
+        // never retried, leaving the building permanently blank for the whole
+        // page session. Only successes are cached; a miss resets curSeed so the
+        // next ticker frame tries again.
+        let tex = buildingCache.get(seed) ?? null;
+        if (!tex) {
+          tex = await tryLoad(ART.building(seed));
+          if (tex) buildingCache.set(seed, tex);
+          else {
+            if (curSeed === seed) curSeed = -1; // allow a retry next frame
+            return;
+          }
+        }
         if (landmark) {
           landmark.destroy();
           landmark = null;
