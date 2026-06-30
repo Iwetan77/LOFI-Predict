@@ -13,8 +13,10 @@ export const ART = {
   lofiFall: "/art/lofi_fall.png",
   lofiCheer: "/art/lofi_cheer.png",
   lofiFly: "/art/lofi_fly.png",
+  lofiWait: "/art/lofi_wait.png", // clinging to the wall between calls (timer ran out)
   btc: "/art/token_btc.svg",
   sky: "/art/sky.jpg",
+  skyNight: "/art/sky_night.jpg", // swaps in every 7 floors, then back to day
   stones: ["/art/stone1.png", "/art/stone2.png"],
   /** 5 distinct towers; the climb cycles through them so all get seen. */
   building: (n: number) => `/art/building_tier${((((n - 1) % 5) + 5) % 5) + 1}.png`,

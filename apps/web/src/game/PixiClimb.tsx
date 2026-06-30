@@ -48,13 +48,15 @@ function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
     const W = () => a.screen.width;
       const H = () => a.screen.height;
 
-      const [idleT, climb1T, climb2T, fallT, flyT, skyT, stoneTexes] = await Promise.all([
+      const [idleT, climb1T, climb2T, fallT, flyT, waitT, skyT, skyNightT, stoneTexes] = await Promise.all([
         tryLoad(ART.lofi),
         tryLoad(ART.lofiClimb),
         tryLoad(ART.lofiClimb2),
         tryLoad(ART.lofiFall),
         tryLoad(ART.lofiFly),
+        tryLoad(ART.lofiWait),
         tryLoad(ART.sky),
+        tryLoad(ART.skyNight),
         tryLoadAll(ART.stones),
       ]);
       const poseIdle = idleT ?? climb1T ?? fallT;
@@ -62,21 +64,26 @@ function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
       const poseClimbB = climb2T ?? climb1T ?? poseIdle;
       const poseFall = fallT ?? poseIdle;
       const poseFly = flyT ?? poseIdle;
+      const poseWait = waitT ?? poseIdle; // clinging-to-wall pose between calls
       const stonePool = stoneTexes.filter((t): t is Texture => !!t);
       const buildingCache = new Map<number, Texture | null>();
       let curSeed = -1;
 
-      // ── sky ──
-      if (skyT) {
-        const sky = new Sprite(skyT);
-        const cover = Math.max(W() / skyT.width, H() / skyT.height) * 1.1;
-        sky.width = skyT.width * cover;
-        sky.height = skyT.height * cover;
+      // ── sky ── day + night, cross-toggled every 7 floors (see ticker)
+      const makeSky = (tex: Texture) => {
+        const sky = new Sprite(tex);
+        const cover = Math.max(W() / tex.width, H() / tex.height) * 1.1;
+        sky.width = tex.width * cover;
+        sky.height = tex.height * cover;
         sky.anchor.set(0.5);
         sky.x = W() / 2;
         sky.y = H() / 2;
         a.stage.addChild(sky);
-      } else {
+        return sky;
+      };
+      const daySky = skyT ? makeSky(skyT) : null;
+      const nightSky = skyNightT ? makeSky(skyNightT) : null;
+      if (!daySky && !nightSky) {
         a.stage.addChild(new Graphics().rect(0, 0, W(), H()).fill({ color: 0x160a33 }));
       }
 
@@ -244,6 +251,19 @@ function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
         const losing = prog < -0.15;
         const t = performance.now();
 
+        // Waiting beat: the clock ran out and LOFI is clinging to the wall while
+        // the next-call menu is up (RESOLVE-after-timeout, then NEXT). A fall or
+        // manual cash-out is handled elsewhere and never reaches this pose.
+        const waiting = phase === "NEXT" || (phase === "RESOLVE" && st.lastResult?.auto === true);
+
+        // Day → night → day, flipping every 7 floors, tracking the floor the
+        // player sees on the HUD (banked floors + this call's progress).
+        if (daySky || nightSky) {
+          const night = Math.floor((st.floor + st.liveFloors) / 7) % 2 === 1 && !!nightSky;
+          if (daySky) daySky.visible = !night;
+          if (nightSky) nightSky.visible = night;
+        }
+
         void ensureBuilding(buildingSeed);
 
         // ── new round: reset the climb, grip, stones ──
@@ -336,7 +356,16 @@ function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
           }
         }
 
-        if (!leaping && !falling) {
+        if (!leaping && !falling && waiting) {
+          // Clock ran out: LOFI swings over to the left face of the tower and
+          // clings there, breathing, while the next-call menu is up. He holds
+          // the height he reached — no climbing, no stones.
+          setPose(poseWait);
+          yetiX += (W() * 0.32 - yetiX) * 0.1 * dt;
+          yeti.x = yetiX;
+          yeti.y = yetiY + Math.sin(t / 650) * 3; // gentle breathing, no drift
+          yeti.rotation = 0;
+        } else if (!leaping && !falling) {
           // During CLIMB he is ALWAYS climbing (hand-over-hand) — the idle pose
           // only shows during the brief ARMING beat, so it never lingers over the
           // action once the round starts.

@@ -33,7 +33,8 @@ infrastructure.
   way, he climbs and the windows glow warm. Moving against you, the windows
   flash red and loose bricks rain down. Topping a tower is a visual reward, not
   the end of the bet — on a hot streak LOFI can rocket through several
-  buildings in a row inside the same call, stacking the bonus each time.
+  buildings in a row inside the same call, stacking the bonus each time. The
+  sky cycles day → night → day every seven floors as he climbs higher.
 - **Hold or grab the ledge.** A live *cash out* button shows your bankable
   winnings — banked buildings plus the current one's swing — and pulses when
   you're ahead. Grab it early to bank that amount and end the run, or hold and
