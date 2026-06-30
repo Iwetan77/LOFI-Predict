@@ -174,19 +174,28 @@ export function useEngine() {
     liveRef.current?.stop();
     subscribeTo(simRef.current!);
 
-    // Real mode: redeem the position; the payout lands in the manager balance.
+    // Real mode: redeem only when there's something to collect. A win/cash-out
+    // is redeemed so the payout lands in the manager balance. A LOSS is NOT
+    // redeemed — the stake was already spent when the position opened, so the
+    // balance is already correct and the worthless position simply lapses at
+    // the oracle's expiry. That removes the pointless "sign again to settle a
+    // loss" popup; you never sign just to confirm you lost.
     let chainCredits: number | undefined;
     if (g.realMode && g.market && g.managerId) {
-      g.setTx("pending");
-      try {
-        const res = await sendRef.current({ action: "redeem", managerId: g.managerId, market: g.market, quantity: qtyOf(g.stake) });
-        const payout = eventAmount(res.events, "PositionRedeemed", ["payout", "amount"]);
-        chainCredits = useGame.getState().credits + payout;
-        useGame.getState().setTx("idle", null, res.digest);
-      } catch (e) {
-        useGame.getState().setTx("error", (e as Error).message);
+      if (outcome === "LOSS") {
+        useGame.getState().setMarket(null); // let the dead position expire on its own
+      } else {
+        g.setTx("pending");
+        try {
+          const res = await sendRef.current({ action: "redeem", managerId: g.managerId, market: g.market, quantity: qtyOf(g.stake) });
+          const payout = eventAmount(res.events, "PositionRedeemed", ["payout", "amount"]);
+          chainCredits = useGame.getState().credits + payout;
+          useGame.getState().setTx("idle", null, res.digest);
+        } catch (e) {
+          useGame.getState().setTx("error", (e as Error).message);
+        }
+        useGame.getState().setMarket(null);
       }
-      useGame.getState().setMarket(null);
     }
 
     // Play-money economy uses the credited/staked arithmetic; real uses chain.
