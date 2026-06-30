@@ -223,8 +223,22 @@ export const useGame = create<GameState>((set, get) => ({
     }),
 
   // Switch the game into real on-chain climbs (signed in + manager ready).
+  // Reset the run to a clean slate — floor 0, first building, full lives — so a
+  // real session never inherits a tier/floor left over from the play-money
+  // tutorial (which made the first real climb start on the wrong building).
   enterReal: (managerId, credits, address) =>
-    set({ realMode: true, playMoney: false, managerId, address, credits: Math.max(0, credits) }),
+    set({
+      realMode: true,
+      playMoney: false,
+      managerId,
+      address,
+      credits: Math.max(0, credits),
+      floor: 0,
+      buildingTier: 1,
+      lives: STARTING_LIVES,
+      lastResult: null,
+      market: null,
+    }),
 
   setMarket: (market) => set({ market }),
 
