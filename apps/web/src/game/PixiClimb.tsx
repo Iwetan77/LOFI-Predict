@@ -93,36 +93,48 @@ function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
       let landmark: Sprite | null = null;
       let towerTopY = H() * 0.14;
       let towerBaseY = H() * 0.9; // foot of the tower (LOFI's feet rest here)
-      const baseFracCache = new Map<number, number>();
+      let towerLeftX = W() * 0.16; // screen x of the tower's visible left edge (LOFI clings here)
+      const boundsCache = new Map<number, { bottom: number; left: number }>();
 
-      // Building art often has transparent padding below the visible structure
-      // (a shadow/ground margin baked into the PNG). Anchoring to the raw image
-      // bottom puts LOFI mid-floor instead of on the ground. Scan the decoded
-      // pixels once per asset to find where the artwork actually ends.
-      const findVisibleBottomFrac = (tex: Texture): number => {
+      // Building art has transparent padding baked into the PNG — below the
+      // structure (a shadow/ground margin) AND on the sides. Anchoring to the raw
+      // image edges puts LOFI mid-floor or floating in empty sky beside the
+      // tower. Scan the decoded pixels once per asset to find where the artwork
+      // actually is: `bottom` = fraction of height where it ends, `left` =
+      // fraction of width where it begins.
+      const findVisibleBounds = (tex: Texture): { bottom: number; left: number } => {
         try {
           const res = (tex.source as unknown as { resource?: CanvasImageSource & { width?: number; height?: number } })
             .resource;
-          if (!res) return 1;
+          if (!res) return { bottom: 1, left: 0 };
           const w = res.width ?? tex.width;
           const h = res.height ?? tex.height;
-          if (!w || !h) return 1;
+          if (!w || !h) return { bottom: 1, left: 0 };
           const c = document.createElement("canvas");
           c.width = w;
           c.height = h;
           const ctx = c.getContext("2d", { willReadFrequently: true });
-          if (!ctx) return 1;
+          if (!ctx) return { bottom: 1, left: 0 };
           ctx.drawImage(res, 0, 0, w, h);
-          const step = Math.max(1, Math.floor(w / 40));
+          const img = ctx.getImageData(0, 0, w, h).data;
+          const xStep = Math.max(1, Math.floor(w / 60));
+          const yStep = Math.max(1, Math.floor(h / 60));
+          const opaque = (x: number, y: number) => img[(y * w + x) * 4 + 3] > 16;
+          let bottom = 1;
           for (let y = h - 1; y >= 0; y--) {
-            const row = ctx.getImageData(0, y, w, 1).data;
-            for (let x = 0; x < w; x += step) {
-              if (row[x * 4 + 3] > 16) return y / h;
-            }
+            let hit = false;
+            for (let x = 0; x < w; x += xStep) if (opaque(x, y)) { hit = true; break; }
+            if (hit) { bottom = y / h; break; }
           }
-          return 1;
+          let left = 0;
+          for (let x = 0; x < w; x++) {
+            let hit = false;
+            for (let y = 0; y < h; y += yStep) if (opaque(x, y)) { hit = true; break; }
+            if (hit) { left = x / w; break; }
+          }
+          return { bottom, left };
         } catch {
-          return 1; // CORS or decode failure — fall back to "no padding"
+          return { bottom: 1, left: 0 }; // CORS or decode failure — fall back to "no padding"
         }
       };
 
@@ -156,10 +168,11 @@ function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
           landmark.x = W() / 2;
           landmark.y = H();
           buildingLayer.addChild(landmark);
-          if (!baseFracCache.has(seed)) baseFracCache.set(seed, findVisibleBottomFrac(tex));
-          const frac = baseFracCache.get(seed) ?? 1;
+          if (!boundsCache.has(seed)) boundsCache.set(seed, findVisibleBounds(tex));
+          const b = boundsCache.get(seed) ?? { bottom: 1, left: 0 };
           towerTopY = H() - landmark.height * 0.9;
-          towerBaseY = H() - landmark.height * (1 - frac); // actual ground line, not the image edge
+          towerBaseY = H() - landmark.height * (1 - b.bottom); // actual ground line, not the image edge
+          towerLeftX = landmark.x - landmark.width / 2 + landmark.width * b.left; // visible left edge, not the sprite edge
         }
       };
 
@@ -370,8 +383,9 @@ function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
           // actual left edge (its scaled width), with a small inset so he reads
           // as clinging to the corner rather than floating off it.
           setPose(poseWait);
-          const leftEdge = landmark ? W() / 2 - landmark.width / 2 : W() * 0.1;
-          const targetX = leftEdge + yetiW * 0.35;
+          // Grip the tower's visible left edge (found by pixel scan), nudged in
+          // by a fraction of his width so his body overlaps the wall, not the sky.
+          const targetX = towerLeftX + yetiW * 0.35;
           yetiX += (targetX - yetiX) * 0.1 * dt;
           yeti.x = yetiX;
           yeti.y = yetiY + Math.sin(t / 650) * 3; // gentle breathing, no drift
