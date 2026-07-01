@@ -233,20 +233,13 @@ export function useEngine() {
     if (useGame.getState().phase === "CLIMB") void resolveRound("CASHOUT");
   };
 
-  // Leave the run: pull all winnings back to the wallet (real mode), go home.
-  const exitGame = async () => {
-    const g = useGame.getState();
-    if (g.realMode && g.managerId && g.credits > 0) {
-      g.setTx("pending");
-      try {
-        await sendRef.current({ action: "withdraw", managerId: g.managerId, amount: String(Math.floor(g.credits * 1e6)) });
-        useGame.getState().syncBalance(0);
-        useGame.getState().setTx("idle");
-      } catch (e) {
-        useGame.getState().setTx("error", (e as Error).message);
-      }
-    }
-    useGame.getState().setPhase("BOOT");
+  // Leave the current climb and go back to the betting console (PICK) with the
+  // locker balance intact — winnings stay in your on-chain locker for the next
+  // call. Cashing out to the wallet is a separate, explicit action (the PICK
+  // "cash out to wallet" button / the wallet chip), so exiting a climb never
+  // drains the manager or forces a re-fuel.
+  const exitGame = () => {
+    useGame.getState().setPhase("PICK");
   };
 
   return { liveSpot, startRound, cashOut, exitGame, cancelArm };

@@ -92,7 +92,7 @@ export function NextMenu({ onContinue, onExit }: { onContinue: () => void; onExi
           {/* actions */}
           <div className="flex gap-2">
             <button onClick={onExit} className="flex-1 border-2 border-white/20 py-2 text-[10px] text-white/70">
-              ⏏ EXIT{realMode ? " (cash out)" : ""}
+              ⏏ EXIT
             </button>
             {realMode && (
               <button onClick={() => setFueling(true)} className="flex-1 border-2 border-gold/50 py-2 text-[10px] text-gold">
