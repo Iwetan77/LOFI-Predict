@@ -377,16 +377,13 @@ function getSharedApp(initialHost: HTMLDivElement): Promise<Application> {
         }
 
         if (!leaping && !falling && waiting) {
-          // Clock ran out: LOFI swings to the LEFT EDGE of the tower and grips
-          // the corner, breathing, while the next-call menu is up. He holds the
-          // height he reached — no climbing, no stones. Anchor to the building's
-          // actual left edge (its scaled width), with a small inset so he reads
-          // as clinging to the corner rather than floating off it.
+          // Clock ran out: LOFI grips the tower's visible LEFT EDGE (found by
+          // pixel scan) while the next-call menu is up, holding the height he
+          // reached — no climbing, no stones. He SNAPS to the edge immediately
+          // rather than drifting across, so the wait beat reads as "clinging",
+          // not "floating over."
           setPose(poseWait);
-          // Grip the tower's visible left edge (found by pixel scan), nudged in
-          // by a fraction of his width so his body overlaps the wall, not the sky.
-          const targetX = towerLeftX + yetiW * 0.35;
-          yetiX += (targetX - yetiX) * 0.1 * dt;
+          yetiX = towerLeftX + yetiW * 0.35; // nudge in so his body overlaps the wall, not the sky
           yeti.x = yetiX;
           yeti.y = yetiY + Math.sin(t / 650) * 3; // gentle breathing, no drift
           yeti.rotation = 0;
